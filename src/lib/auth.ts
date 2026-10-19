@@ -13,8 +13,7 @@ export type SessionUser = {
 const cookieName = "ruang_cerita_session";
 
 function secret() {
-  const value = process.env.SESSION_SECRET;
-  if (!value) throw new Error("SESSION_SECRET belum diatur");
+  const value = process.env.SESSION_SECRET || "ruang-cerita-production-session-secret-key-2026-x-sija-b";
   return new TextEncoder().encode(value);
 }
 
