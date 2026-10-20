@@ -3,6 +3,20 @@ import { z } from 'zod';
 import { getSession } from '@/lib/auth';
 import { sql } from '@/lib/db';
 
+const imageUriSchema = z
+  .string()
+  .max(3_500_000, 'Ukuran foto maksimal 3.5MB')
+  .refine((val) => !val || /^data:image\/(jpeg|png|webp|gif|jpg);base64,/i.test(val), {
+    message: 'Format gambar harus berupa data URI gambar yang valid',
+  });
+
+const avatarUriSchema = z
+  .string()
+  .max(1_500_000, 'Ukuran foto profil maksimal 1.5MB')
+  .refine((val) => !val || /^data:image\/(jpeg|png|webp|gif|jpg);base64,/i.test(val), {
+    message: 'Format foto profil harus berupa data URI gambar yang valid',
+  });
+
 const input = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('start'),
@@ -14,7 +28,7 @@ const input = z.discriminatedUnion('action', [
     id: z.string().uuid(),
     body: z.string().trim().max(5000).optional().default(''),
     type: z.enum(['text', 'photo']).optional().default('text'),
-    mediaUrl: z.string().optional().default(''),
+    mediaUrl: imageUriSchema.optional().default(''),
     replyId: z.string().uuid().optional(),
     replyFrom: z.string().max(100).optional(),
     replyText: z.string().max(300).optional(),
@@ -31,7 +45,7 @@ const input = z.discriminatedUnion('action', [
     action: z.literal('create_story'),
     type: z.enum(['text', 'photo']),
     content: z.string().max(2000).optional().default(''),
-    mediaUrl: z.string().optional().default(''),
+    mediaUrl: imageUriSchema.optional().default(''),
     bgColor: z.string().max(30).optional().default('#10B981'),
   }),
   z.object({
@@ -43,7 +57,7 @@ const input = z.discriminatedUnion('action', [
     fullName: z.string().trim().min(2).max(100),
     bio: z.string().trim().max(300).optional().default(''),
     whatsapp: z.string().trim().max(30).optional().default(''),
-    avatar: z.string().optional(),
+    avatar: avatarUriSchema.optional(),
   }),
 ]);
 

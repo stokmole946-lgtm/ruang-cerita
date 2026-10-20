@@ -10,6 +10,7 @@ import {
   Chats,
   ChatTeardropDots,
   EnvelopeSimple,
+  GearSix,
   House,
   Key,
   List,
@@ -63,9 +64,11 @@ function compressAvatar(file: File): Promise<string> {
 export function AppDrawer({
   user,
   admin,
+  trigger = 'header',
 }: {
   user: DrawerUser;
   admin: boolean;
+  trigger?: 'header' | 'button';
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'nav'>('profile');
@@ -120,26 +123,41 @@ export function AppDrawer({
 
   return (
     <>
-      {/* ── HAMBURGER & AVATAR TRIGGER BUTTON ── */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="app-drawer-trigger"
-        aria-label="Buka menu & profil"
-        title="Buka menu & profil"
-      >
-        <span className="grid place-items-center size-8 rounded-[6px] bg-[#fffef9] border-2 border-[#20201e] shadow-[2px_2px_0_#20201e]">
-          <List size={20} weight="bold" />
-        </span>
-        <div className="avatar-mini size-8 rounded-full border-2 border-[#20201e] overflow-hidden bg-[#ffdb59] flex items-center justify-center font-black text-xs shrink-0">
-          {avatarPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarPreview} alt={user.fullName} className="size-full object-cover" />
-          ) : (
-            <span>{user.fullName.slice(0, 1).toUpperCase()}</span>
-          )}
-        </div>
-      </button>
+      {/* ── TRIGGER BUTTON ── */}
+      {trigger === 'button' ? (
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('password');
+            setIsOpen(true);
+          }}
+          className="mt-2 text-xs font-bold text-[#345bdc] hover:underline flex items-center gap-1.5"
+          title="Pengaturan akun & ganti password"
+        >
+          <GearSix size={14} weight="bold" />
+          <span>Ganti Password & Profil</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="app-drawer-trigger"
+          aria-label="Buka menu & profil"
+          title="Buka menu & profil"
+        >
+          <span className="grid place-items-center size-8 rounded-[6px] bg-[#fffef9] border-2 border-[#20201e] shadow-[2px_2px_0_#20201e]">
+            <List size={20} weight="bold" />
+          </span>
+          <div className="avatar-mini size-8 rounded-full border-2 border-[#20201e] overflow-hidden bg-[#ffdb59] flex items-center justify-center font-black text-xs shrink-0 shadow-[1px_1px_0_#20201e]">
+            {avatarPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarPreview} alt={user.fullName} className="size-full object-cover" />
+            ) : (
+              <span>{user.fullName.slice(0, 1).toUpperCase()}</span>
+            )}
+          </div>
+        </button>
+      )}
 
       {/* ── DRAWER MODAL OVERLAY ── */}
       {isOpen && (

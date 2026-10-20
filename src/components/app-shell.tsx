@@ -98,10 +98,7 @@ export async function AppShell({
   return (
     <div className="app-frame">
       <aside className="app-sidebar">
-        <div className="flex items-center justify-between">
-          <Brand />
-          <AppDrawer user={drawerUserData} admin={admin} />
-        </div>
+        <Brand />
         <Navigation admin={admin} badges={badges} />
         <div className="app-user">
           <div className="flex items-center gap-3">
@@ -120,8 +117,9 @@ export async function AppShell({
               </p>
             </div>
           </div>
+          <AppDrawer user={drawerUserData} admin={admin} trigger="button" />
           <form action={logoutAction}>
-            <button className="mt-3 text-xs font-bold text-[#d94833] hover:underline" type="submit">
+            <button className="mt-2 text-xs font-bold text-[#d94833] hover:underline" type="submit">
               Keluar akun →
             </button>
           </form>
@@ -130,7 +128,7 @@ export async function AppShell({
 
       <div className="mobile-header">
         <div className="flex items-center gap-2">
-          <AppDrawer user={drawerUserData} admin={admin} />
+          <AppDrawer user={drawerUserData} admin={admin} trigger="header" />
           <Brand compact />
         </div>
         <div className="flex items-center gap-1.5">

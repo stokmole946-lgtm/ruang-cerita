@@ -10,16 +10,59 @@ import { currentPeriod } from "@/lib/time";
 
 const clean = (value: FormDataEntryValue | null) => String(value ?? "").trim();
 
+interface LoginAttempt {
+  count: number;
+  blockedUntil: number;
+}
+const loginAttempts = new Map<string, LoginAttempt>();
+
+function isLoginBlocked(username: string): boolean {
+  const record = loginAttempts.get(username);
+  if (!record) return false;
+  if (Date.now() < record.blockedUntil) return true;
+  if (Date.now() > record.blockedUntil && record.blockedUntil > 0) {
+    loginAttempts.delete(username);
+    return false;
+  }
+  return false;
+}
+
+function registerFailedLogin(username: string) {
+  const record = loginAttempts.get(username) || { count: 0, blockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= 5) {
+    record.blockedUntil = Date.now() + 5 * 60 * 1000; // Kunci 5 menit setelah 5x salah
+  }
+  loginAttempts.set(username, record);
+}
+
+function resetLoginAttempts(username: string) {
+  loginAttempts.delete(username);
+}
+
 export async function loginAction(formData: FormData) {
   const username = clean(formData.get("username")).toLowerCase();
   const password = clean(formData.get("password"));
   if (!username || !password) redirect("/login?error=Lengkapi+username+dan+password");
 
+  if (isLoginBlocked(username)) {
+    redirect("/login?error=Terlalu+banyak+percobaan+gagal.+Tunggu+5+menit.");
+  }
+
   const rows = await sql`SELECT * FROM users WHERE lower(username) = ${username} LIMIT 1`;
   const user = rows[0];
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+
+  const passwordMatch = user ? await bcrypt.compare(password, user.password_hash) : false;
+
+  if (!user || !passwordMatch) {
+    registerFailedLogin(username);
+    // Artificial delay to prevent automated timing attacks
+    await new Promise((r) => setTimeout(r, 350));
     redirect("/login?error=Username+atau+password+salah");
   }
+
+  resetLoginAttempts(username);
+
   await createSession({
     id: user.id,
     username: user.username,
@@ -65,6 +108,13 @@ export async function updateAvatarAction(formData: FormData) {
   if (!user) redirect("/login");
   const avatar = clean(formData.get("avatar"));
   const from = clean(formData.get("from")) || "/dashboard";
+
+  if (avatar) {
+    if (avatar.length > 1_500_000 || !/^data:image\/(jpeg|png|webp|gif|jpg);base64,/i.test(avatar)) {
+      redirect(`${from}?error=Format+atau+ukuran+foto+profil+tidak+valid`);
+    }
+  }
+
   await sql`UPDATE users SET avatar = ${avatar || null} WHERE id = ${user.id}`;
   revalidatePath("/dashboard");
   revalidatePath("/profil");

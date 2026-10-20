@@ -10,7 +10,13 @@ import { getTodayPiketInfo } from "@/lib/piket";
 const clean = (val: FormDataEntryValue | null) => String(val ?? "").trim();
 
 const piketUploadSchema = z.object({
-  photoData: z.string().min(10, "Foto dokumentasi wajib disertakan"),
+  photoData: z
+    .string()
+    .min(10, "Foto dokumentasi wajib disertakan")
+    .max(3_500_000, "Ukuran foto maksimal 3.5MB")
+    .refine((val) => /^data:image\/(jpeg|png|webp|gif|jpg);base64,/i.test(val), {
+      message: "Format foto harus berupa data URI gambar yang valid",
+    }),
   note: z.string().max(500, "Catatan maksimal 500 karakter").optional(),
 });
 
