@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   const report = await getClassMonthlyAttendance(period);
   const rows = [
-    ["Nama", "Username", "Hadir", "Terlambat", "Izin", "Sakit", "Alfa", "Persentase"],
+    ["Nama", "Username", "Hadir", "Terlambat", "Izin", "Sakit", "Alfa", "Netral", "Persentase"],
     ...report.students.map((student) => [
       student.full_name,
       student.username,
@@ -27,6 +27,7 @@ export async function GET(request: Request) {
       student.excused,
       student.sick,
       student.absent,
+      student.neutral,
       `${student.attendance_percentage}%`,
     ]),
   ];

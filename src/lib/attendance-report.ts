@@ -17,6 +17,7 @@ interface MonthlyStudentRow {
   excused: number;
   sick: number;
   absent: number;
+  neutral: number;
 }
 
 export function parseMonthPeriod(value: string | null): MonthPeriod | null {
@@ -54,19 +55,20 @@ export async function getStudentMonthlyAttendance(studentId: string, period: Mon
     ORDER BY s.starts_at DESC
   `;
 
-  const totals = { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0 };
+  const totals = { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0, NEUTRAL: 0 };
   for (const record of records) {
     const status = record.status as keyof typeof totals;
     if (status in totals) totals[status] += 1;
   }
   const attended = totals.PRESENT + totals.LATE;
   const totalSessions = sessionCount?.total || 0;
+  const resolvedSessions = Math.max(0, totalSessions - totals.NEUTRAL);
 
   return {
     period: { key: period.key, label: period.label },
     totalSessions,
     totals,
-    attendancePercentage: totalSessions ? Math.round((attended / totalSessions) * 100) : 0,
+    attendancePercentage: resolvedSessions ? Math.round((attended / resolvedSessions) * 100) : 0,
     records,
   };
 }
@@ -88,6 +90,7 @@ export async function getClassMonthlyAttendance(period: MonthPeriod) {
       COUNT(r.id) FILTER (WHERE s.id IS NOT NULL AND r.status = 'EXCUSED')::int AS excused,
       COUNT(r.id) FILTER (WHERE s.id IS NOT NULL AND r.status = 'SICK')::int AS sick,
       COUNT(r.id) FILTER (WHERE s.id IS NOT NULL AND r.status = 'ABSENT')::int AS absent
+      ,COUNT(r.id) FILTER (WHERE s.id IS NOT NULL AND r.status = 'NEUTRAL')::int AS neutral
     FROM users u
     LEFT JOIN attendance_records r ON r.student_id = u.id
     LEFT JOIN attendance_sessions s ON s.id = r.session_id
@@ -101,8 +104,8 @@ export async function getClassMonthlyAttendance(period: MonthPeriod) {
 
   const normalized = students.map((student) => ({
     ...student,
-    attendance_percentage: totalSessions
-      ? Math.round(((student.present + student.late) / totalSessions) * 100)
+    attendance_percentage: totalSessions - student.neutral > 0
+      ? Math.round(((student.present + student.late) / (totalSessions - student.neutral)) * 100)
       : 0,
   }));
 
@@ -113,15 +116,22 @@ export async function getClassMonthlyAttendance(period: MonthPeriod) {
       result.EXCUSED += student.excused;
       result.SICK += student.sick;
       result.ABSENT += student.absent;
+      result.NEUTRAL += student.neutral;
       return result;
     },
-    { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0 },
+    { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0, NEUTRAL: 0 },
   );
 
   return {
     period: { key: period.key, label: period.label },
     totalSessions,
     totals,
+    attendancePercentage: totalSessions * normalized.length - totals.NEUTRAL > 0
+      ? Math.round(
+          ((totals.PRESENT + totals.LATE) /
+            (totalSessions * normalized.length - totals.NEUTRAL)) * 100,
+        )
+      : 0,
     students: normalized,
   };
 }

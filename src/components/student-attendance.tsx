@@ -114,7 +114,7 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
       result[item.status] += 1;
       return result;
     },
-    { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0 },
+    { PRESENT: 0, LATE: 0, EXCUSED: 0, SICK: 0, ABSENT: 0, NEUTRAL: 0 },
   );
 
   return (
@@ -185,7 +185,7 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
 
       <section className="panel p-5 sm:p-7">
         <div className="section-title"><h2>Ringkasan Kehadiran</h2><span className="badge !bg-white">30 sesi terakhir</span></div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => (
             <div key={status} className={`border-2 border-[#20201e] rounded-[8px] p-3 shadow-[2px_2px_0_#20201e] ${attendanceStatusClass(status)}`}>
               <p className="text-[11px] font-black uppercase">{ATTENDANCE_STATUS[status]}</p>
@@ -213,7 +213,7 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
             <div><p className="font-black text-lg">{monthly.period.label}</p><p className="text-xs font-bold">{monthly.totalSessions} sesi final</p></div>
             <div className="text-left sm:text-right"><p className="text-4xl font-black">{monthly.attendancePercentage}%</p><p className="text-[10px] font-black uppercase">Kehadiran</p></div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">
             {(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => <div key={status} className={`border-2 border-[#20201e] rounded-[7px] p-2 ${attendanceStatusClass(status)}`}><p className="text-[10px] font-black">{ATTENDANCE_STATUS[status]}</p><p className="text-2xl font-black">{monthly.totals[status]}</p></div>)}
           </div>
           <div className="space-y-2">

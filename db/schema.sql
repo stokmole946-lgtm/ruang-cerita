@@ -158,8 +158,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL CHECK (status IN ('PRESENT', 'LATE', 'EXCUSED', 'SICK', 'ABSENT')),
-  source TEXT NOT NULL CHECK (source IN ('QR', 'MANUAL', 'AUTO_ABSENT')),
+  status TEXT NOT NULL CHECK (status IN ('PRESENT', 'LATE', 'EXCUSED', 'SICK', 'ABSENT', 'NEUTRAL')),
+  source TEXT NOT NULL CHECK (source IN ('QR', 'MANUAL', 'AUTO_NEUTRAL')),
   scanned_at TIMESTAMPTZ,
   recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
   note TEXT CHECK (note IS NULL OR char_length(note) <= 500),
@@ -173,6 +173,21 @@ ON attendance_records(student_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS attendance_records_session_idx
 ON attendance_records(session_id, status, created_at);
+
+ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_records_status_check;
+ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_records_source_check;
+
+UPDATE attendance_records
+SET status = 'NEUTRAL',
+    source = 'AUTO_NEUTRAL',
+    note = 'Dinetralisasi dari status otomatis sebelumnya'
+WHERE source = 'AUTO_ABSENT';
+
+ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_status_check
+CHECK (status IN ('PRESENT', 'LATE', 'EXCUSED', 'SICK', 'ABSENT', 'NEUTRAL'));
+
+ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_source_check
+CHECK (source IN ('QR', 'MANUAL', 'AUTO_NEUTRAL'));
 
 DROP TRIGGER IF EXISTS attendance_records_touch_updated_at ON attendance_records;
 CREATE TRIGGER attendance_records_touch_updated_at BEFORE UPDATE ON attendance_records

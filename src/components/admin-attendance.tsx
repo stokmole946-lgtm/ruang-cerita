@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserQRCodeReader } from '@zxing/browser';
 import {
   Camera,
@@ -51,6 +51,7 @@ interface MonthlyStudent {
   excused: number;
   sick: number;
   absent: number;
+  neutral: number;
   attendance_percentage: number;
 }
 
@@ -58,6 +59,7 @@ interface MonthlyClassData {
   period: { key: string; label: string };
   totalSessions: number;
   totals: Record<AttendanceStatus, number>;
+  attendancePercentage: number;
   students: MonthlyStudent[];
 }
 
@@ -88,23 +90,27 @@ export function AdminAttendance() {
   const [month, setMonth] = useState(currentJakartaMonth);
   const [monthly, setMonthly] = useState<MonthlyClassData | null>(null);
   const [monthlySearch, setMonthlySearch] = useState('');
+  const [reviewSessionId, setReviewSessionId] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerControls = useRef<{ stop: () => void } | null>(null);
   const scanning = useRef(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async (sessionId = reviewSessionId) => {
     try {
-      setData(await attendanceApi());
+      const response = await fetch(sessionId ? `/api/attendance?session=${sessionId}` : '/api/attendance', { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Gagal memuat data.');
+      setData(result);
     } catch (error) {
       setFeedback({ kind: 'error', text: error instanceof Error ? error.message : 'Gagal memuat data.' });
     }
-  };
+  }, [reviewSessionId]);
 
   useEffect(() => {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 3_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,12 +160,13 @@ export function AdminAttendance() {
       scannerControls.current?.stop();
       scannerControls.current = null;
     };
-  }, [scannerOpen]);
+  }, [scannerOpen, refresh]);
 
   const startSession = async () => {
     setBusy(true);
     try {
       await attendanceApi({ action: 'start', title, lateMinutes });
+      setReviewSessionId('');
       setFeedback({ kind: 'success', text: 'Sesi aktif. QR siswa sekarang tersedia.' });
       await refresh();
     } catch (error) {
@@ -168,12 +175,13 @@ export function AdminAttendance() {
   };
 
   const closeSession = async () => {
-    if (!data?.activeSession || !confirm('Tutup sesi? Siswa tanpa catatan akan otomatis menjadi Alfa.')) return;
+    if (!data?.activeSession || !confirm('Tutup sesi? Siswa tanpa catatan akan diberi status Netral.')) return;
     setBusy(true);
     try {
       await attendanceApi({ action: 'close', sessionId: data.activeSession.id });
+      setReviewSessionId('');
       setScannerOpen(false);
-      setFeedback({ kind: 'success', text: 'Sesi ditutup. Siswa yang belum tercatat menjadi Alfa.' });
+      setFeedback({ kind: 'success', text: 'Sesi ditutup. Siswa yang belum tercatat menjadi Netral.' });
       await refresh();
     } catch (error) {
       setFeedback({ kind: 'error', text: error instanceof Error ? error.message : 'Gagal menutup sesi.' });
@@ -187,7 +195,7 @@ export function AdminAttendance() {
       : '';
     try {
       await attendanceApi({ action: 'status', sessionId: data.activeSession.id, studentId, status, note });
-      await refresh();
+      await refresh(reviewSessionId);
     } catch (error) {
       setFeedback({ kind: 'error', text: error instanceof Error ? error.message : 'Gagal mengubah status.' });
     }
@@ -198,12 +206,13 @@ export function AdminAttendance() {
   );
   const recorded = (data?.students || []).filter((student) => student.status).length;
   const present = (data?.students || []).filter((student) => student.status === 'PRESENT' || student.status === 'LATE').length;
+  const sessionOpen = Boolean(data?.activeSession && !data.activeSession.closed_at);
 
   return (
     <div className="space-y-6 max-w-6xl">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div><span className="badge !bg-[#ffdb59] mb-2">PANEL PENGURUS</span><h1 className="page-title">Absensi Kelas.</h1><p className="text-sm text-[#555951]">Mulai sesi, pindai QR dinamis siswa, lalu tutup sesi untuk menetapkan Alfa.</p></div>
-        {data?.activeSession && <button className="btn-danger flex items-center gap-2" onClick={closeSession} disabled={busy}><Stop size={18} weight="fill" /> Tutup Sesi</button>}
+        <div><span className="badge !bg-[#ffdb59] mb-2">PANEL PENGURUS</span><h1 className="page-title">Absensi Kelas.</h1><p className="text-sm text-[#555951]">Mulai sesi, pindai QR dinamis siswa, lalu tutup sesi. Yang belum tercatat akan tetap Netral.</p></div>
+        {sessionOpen && <button className="btn-danger flex items-center gap-2" onClick={closeSession} disabled={busy}><Stop size={18} weight="fill" /> Tutup Sesi</button>}
       </header>
 
       {feedback && (
@@ -225,10 +234,10 @@ export function AdminAttendance() {
         </section>
       ) : (
         <>
-          <section className="panel p-5 sm:p-6 !bg-[#b9e2ce]">
+          <section className={`panel p-5 sm:p-6 ${sessionOpen ? '!bg-[#b9e2ce]' : '!bg-[#eeeee5]'}`}>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div><span className="badge !bg-white">SESI AKTIF</span><h2 className="text-2xl font-black mt-3">{data.activeSession.title}</h2><p className="text-xs font-bold mt-1">Batas terlambat: {new Date(data.activeSession.late_after).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB</p></div>
-              <button className="btn-primary !bg-[#ffdb59] flex items-center gap-2" onClick={() => setScannerOpen(true)}><Camera size={20} weight="bold" /> Buka Scanner QR</button>
+              <div><span className="badge !bg-white">{sessionOpen ? 'SESI AKTIF' : 'SESI DITUTUP'}</span><h2 className="text-2xl font-black mt-3">{data.activeSession.title}</h2><p className="text-xs font-bold mt-1">{sessionOpen ? `Batas terlambat: ${new Date(data.activeSession.late_after).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB` : 'Status Netral dapat diselesaikan manual oleh pengurus.'}</p></div>
+              {sessionOpen && <button className="btn-primary !bg-[#ffdb59] flex items-center gap-2" onClick={() => setScannerOpen(true)}><Camera size={20} weight="bold" /> Buka Scanner QR</button>}
             </div>
           </section>
 
@@ -239,6 +248,15 @@ export function AdminAttendance() {
           </div>
         </>
       )}
+
+      {data?.recentSessions.length ? (
+        <section className="panel p-4 sm:p-5 !bg-[#eeeee5]">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="font-black">Tinjau sesi tertutup</p><p className="text-xs text-[#555951]">Pilih sesi untuk menyelesaikan status Netral menjadi Hadir, Izin, Sakit, atau Alfa.</p></div>
+            <label className="text-xs font-black">Sesi<select className="field mt-1 !py-2 min-w-[240px]" value={reviewSessionId} onChange={(event) => setReviewSessionId(event.target.value)}><option value="">Sesi aktif / terbaru</option>{data.recentSessions.filter((session) => session.closed_at).map((session) => <option key={session.id} value={session.id}>{session.title} · {new Date(session.starts_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })}</option>)}</select></label>
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel p-5 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5"><h2 className="text-xl font-black flex items-center gap-2"><Users size={22} weight="fill" /> Daftar Siswa</h2><label className="relative"><MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2" /><input className="field !pl-10 !py-2" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari siswa..." /></label></div>
@@ -265,11 +283,11 @@ export function AdminAttendance() {
           <div className="flex flex-wrap items-end gap-2"><label className="text-xs font-black">Bulan<input type="month" className="field mt-1 !py-2" value={month} onChange={(event) => setMonth(event.target.value)} min="2024-01" max="2100-12" /></label><a className="btn-primary !min-h-[40px] text-xs" href={`/api/attendance/export?month=${month}`}>Export CSV</a></div>
         </div>
         {monthly ? <>
-          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-center bg-[#ffdb59] border-2 border-[#20201e] rounded-[10px] p-4 shadow-[3px_3px_0_#20201e] mb-4"><div><p className="font-black text-lg">{monthly.period.label}</p><p className="text-xs font-bold">{monthly.totalSessions} sesi final · {monthly.students.length} siswa</p></div><div className="text-3xl font-black">{monthly.totalSessions ? Math.round(((monthly.totals.PRESENT + monthly.totals.LATE) / (monthly.totalSessions * Math.max(monthly.students.length, 1))) * 100) : 0}%</div></div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">{(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => <div key={status} className={`border-2 border-[#20201e] rounded-[7px] p-2 ${attendanceStatusClass(status)}`}><p className="text-[10px] font-black">{ATTENDANCE_STATUS[status]}</p><p className="text-2xl font-black">{monthly.totals[status]}</p></div>)}</div>
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-center bg-[#ffdb59] border-2 border-[#20201e] rounded-[10px] p-4 shadow-[3px_3px_0_#20201e] mb-4"><div><p className="font-black text-lg">{monthly.period.label}</p><p className="text-xs font-bold">{monthly.totalSessions} sesi final · {monthly.students.length} siswa · Netral tidak masuk perhitungan</p></div><div className="text-3xl font-black">{monthly.attendancePercentage}%</div></div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">{(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => <div key={status} className={`border-2 border-[#20201e] rounded-[7px] p-2 ${attendanceStatusClass(status)}`}><p className="text-[10px] font-black">{ATTENDANCE_STATUS[status]}</p><p className="text-2xl font-black">{monthly.totals[status]}</p></div>)}</div>
           <label className="relative block mb-4 max-w-sm"><MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2" /><input className="field !pl-10 !py-2" value={monthlySearch} onChange={(event) => setMonthlySearch(event.target.value)} placeholder="Cari rekap siswa..." /></label>
           <div className="overflow-x-auto border-2 border-[#20201e] rounded-[9px]">
-            <table className="w-full min-w-[760px] text-sm"><thead className="bg-[#eeeee5] border-b-2 border-[#20201e]"><tr>{['Siswa', 'Hadir', 'Telat', 'Izin', 'Sakit', 'Alfa', 'Persentase'].map((heading) => <th key={heading} className="p-3 text-left text-xs font-black uppercase">{heading}</th>)}</tr></thead><tbody className="divide-y divide-[#20201e]/20">{monthly.students.filter((student) => `${student.full_name} ${student.username}`.toLowerCase().includes(monthlySearch.toLowerCase())).map((student) => <tr key={student.id} className="bg-white"><td className="p-3"><p className="font-black">{student.full_name}</p><p className="text-xs text-[#555951]">@{student.username}</p></td><td className="p-3 font-black">{student.present}</td><td className="p-3 font-black">{student.late}</td><td className="p-3 font-black">{student.excused}</td><td className="p-3 font-black">{student.sick}</td><td className="p-3 font-black">{student.absent}</td><td className="p-3"><span className={`badge ${student.attendance_percentage >= 80 ? '!bg-[#b9e2ce]' : student.attendance_percentage >= 60 ? '!bg-[#ffdb59]' : '!bg-[#ffa18b]'}`}>{student.attendance_percentage}%</span></td></tr>)}</tbody></table>
+            <table className="w-full min-w-[820px] text-sm"><thead className="bg-[#eeeee5] border-b-2 border-[#20201e]"><tr>{['Siswa', 'Hadir', 'Telat', 'Izin', 'Sakit', 'Alfa', 'Netral', 'Persentase'].map((heading) => <th key={heading} className="p-3 text-left text-xs font-black uppercase">{heading}</th>)}</tr></thead><tbody className="divide-y divide-[#20201e]/20">{monthly.students.filter((student) => `${student.full_name} ${student.username}`.toLowerCase().includes(monthlySearch.toLowerCase())).map((student) => <tr key={student.id} className="bg-white"><td className="p-3"><p className="font-black">{student.full_name}</p><p className="text-xs text-[#555951]">@{student.username}</p></td><td className="p-3 font-black">{student.present}</td><td className="p-3 font-black">{student.late}</td><td className="p-3 font-black">{student.excused}</td><td className="p-3 font-black">{student.sick}</td><td className="p-3 font-black">{student.absent}</td><td className="p-3 font-black">{student.neutral}</td><td className="p-3"><span className={`badge ${student.attendance_percentage >= 80 ? '!bg-[#b9e2ce]' : student.attendance_percentage >= 60 ? '!bg-[#ffdb59]' : '!bg-[#ffa18b]'}`}>{student.attendance_percentage}%</span></td></tr>)}</tbody></table>
           </div>
         </> : <p className="empty">Memuat rekap bulanan...</p>}
       </section>

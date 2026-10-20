@@ -18,7 +18,7 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("status"),
     sessionId: z.string().uuid(),
     studentId: z.string().uuid(),
-    status: z.enum(["PRESENT", "LATE", "EXCUSED", "SICK", "ABSENT"]),
+    status: z.enum(["PRESENT", "LATE", "EXCUSED", "SICK", "ABSENT", "NEUTRAL"]),
     note: z.string().trim().max(500).optional().default(""),
   }),
 ]);
@@ -97,7 +97,8 @@ export async function GET(request: Request) {
     : await sql`
         SELECT id, title, starts_at, late_after, closed_at, created_by
         FROM attendance_sessions
-        ORDER BY (closed_at IS NULL) DESC, starts_at DESC
+        WHERE closed_at IS NULL
+        ORDER BY starts_at DESC
         LIMIT 1
       `;
 
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
       if (!session) return false;
       await tx`
         INSERT INTO attendance_records (session_id, student_id, status, source, recorded_by, note)
-        SELECT ${data.sessionId}, u.id, 'ABSENT', 'AUTO_ABSENT', ${user.id}, 'Otomatis alfa saat sesi ditutup'
+        SELECT ${data.sessionId}, u.id, 'NEUTRAL', 'AUTO_NEUTRAL', ${user.id}, 'Belum ditentukan saat sesi ditutup'
         FROM users u
         WHERE u.role = 'STUDENT'
         ON CONFLICT (session_id, student_id) DO NOTHING
@@ -249,10 +250,10 @@ export async function POST(request: Request) {
     if (user.role !== "ADMIN") return NextResponse.json({ error: "Khusus pengurus." }, { status: 403 });
     const [student] = await sql`SELECT id FROM users WHERE id = ${data.studentId} AND role = 'STUDENT'`;
     if (!student) return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
-    const [active] = await sql`
-      SELECT id FROM attendance_sessions WHERE id = ${data.sessionId} AND closed_at IS NULL
+    const [session] = await sql`
+      SELECT id FROM attendance_sessions WHERE id = ${data.sessionId}
     `;
-    if (!active) return NextResponse.json({ error: "Sesi sudah ditutup atau tidak ditemukan." }, { status: 409 });
+    if (!session) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
 
     await sql.begin(async (tx) => {
       await tx`
