@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   sender_id UUID NOT NULL REFERENCES users(id),
   body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 5000),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  type TEXT NOT NULL DEFAULT 'text',
+  media_url TEXT,
+  reply_id UUID REFERENCES chat_messages(id) ON DELETE SET NULL,
+  reply_from TEXT,
+  reply_text TEXT,
   FOREIGN KEY (conversation_id, sender_id) REFERENCES chat_members(conversation_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS chat_messages_timeline_idx ON chat_messages(conversation_id, created_at, id);

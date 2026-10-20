@@ -53,6 +53,24 @@
 .xora-story-body { flex:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
 .xora-story-tap-left { position:absolute; top:60px; bottom:0; left:0; width:35%; z-index:2; cursor:pointer; }
 .xora-story-tap-right { position:absolute; top:60px; bottom:0; right:0; width:65%; z-index:2; cursor:pointer; }
+.xora-sender-name { font-size:11px; font-weight:800; color:#7dd3fc; margin-bottom:3px; }
+.xora-reply-quote { border-left:3px solid #34f5c5; background:rgba(7,11,24,0.45); border-radius:6px; padding:5px 9px; margin-bottom:6px; display:flex; flex-direction:column; min-width:0; }
+.xora-reply-from { font-size:11px; font-weight:800; color:#34f5c5; }
+.xora-reply-text { font-size:11px; color:#97a9c9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
+.xora-photo-msg { margin-bottom:4px; }
+.xora-bubble.photo-bubble { padding:6px 6px 4px; }
+.xora-msg-menu-btn { display:grid; place-items:center; width:24px; height:24px; border-radius:50%; border:0; background:transparent; color:#66789b; opacity:0; transition:opacity .15s; cursor:pointer; }
+.xora-bubble:hover .xora-msg-menu-btn { opacity:1; }
+@media(hover:none) { .xora-msg-menu-btn { opacity:.55; } }
+.xora-msg-menu { position:absolute; bottom:calc(100% + 4px); right:0; z-index:10; background:#111a2e; border:1px solid #23304c; border-radius:10px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.45); min-width:130px; }
+.xora-msg-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:9px 12px; border:0; background:transparent; color:#eaf2ff; font-size:12px; font-weight:700; text-align:left; cursor:pointer; transition:background .12s; }
+.xora-msg-menu-item:hover { background:#16203a; }
+.xora-msg-menu-item.danger { color:#fb7185; }
+.xora-composer-preview { padding:8px 16px 0; background:#0b1324; }
+.xora-reply-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#111a2e; border-left:3px solid #34f5c5; border-radius:8px; margin-bottom:8px; }
+.xora-photo-preview-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#111a2e; border-radius:8px; margin-bottom:8px; }
+.xora-attach-btn { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:transparent; border:1px solid #23304c; color:#97a9c9; flex-shrink:0; cursor:pointer; transition:all .15s; }
+.xora-attach-btn:hover { background:#16203a; color:#34f5c5; border-color:#34f5c5; }
 @media(max-width:767px) {
   .xora-shell { position:fixed; inset:0; z-index:50; border:0; border-radius:0; height:100dvh; grid-template-columns:1fr; }
   .xora-shell .xora-room { display:none; }

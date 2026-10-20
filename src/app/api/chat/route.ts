@@ -12,7 +12,16 @@ const input = z.discriminatedUnion('action', [
     action: z.literal('send'),
     conversation: z.string().uuid(),
     id: z.string().uuid(),
-    body: z.string().trim().min(1).max(5000),
+    body: z.string().trim().max(5000).optional().default(''),
+    type: z.enum(['text', 'photo']).optional().default('text'),
+    mediaUrl: z.string().optional().default(''),
+    replyId: z.string().uuid().optional(),
+    replyFrom: z.string().max(100).optional(),
+    replyText: z.string().max(300).optional(),
+  }),
+  z.object({
+    action: z.literal('delete_message'),
+    messageId: z.string().uuid(),
   }),
   z.object({
     action: z.literal('read'),
@@ -55,7 +64,10 @@ export async function GET(request: Request) {
 
     const messages = await sql`
       SELECT * FROM (
-        SELECT m.id, m.sender_id, m.body, m.created_at,
+        SELECT m.id, m.sender_id, m.body, m.type, m.media_url,
+          m.reply_id, m.reply_from, m.reply_text,
+          u.full_name AS sender_name, u.username AS sender_username,
+          m.created_at,
           EXISTS(
             SELECT 1 FROM chat_members r
             WHERE r.conversation_id = m.conversation_id
@@ -63,8 +75,9 @@ export async function GET(request: Request) {
               AND r.last_read_at >= m.created_at
           ) AS read
         FROM chat_messages m
-        WHERE conversation_id = ${id}
-        ORDER BY created_at DESC, id DESC
+        JOIN users u ON u.id = m.sender_id
+        WHERE m.conversation_id = ${id}
+        ORDER BY m.created_at DESC, m.id DESC
         LIMIT 100
       ) recent
       ORDER BY created_at ASC, id ASC
@@ -81,14 +94,26 @@ export async function GET(request: Request) {
     WHERE id = ${user.id}
   `;
 
-  // Ambil percakapan aktif
+  // Ambil percakapan aktif (Grup & Direct)
   const conversations = await sql`
     SELECT c.id,
-      COALESCE(c.title, u.full_name) AS title,
-      u.username AS partner_username,
+      c.kind,
+      CASE
+        WHEN c.kind = 'group' THEN c.title
+        ELSE COALESCE(u.full_name, c.title)
+      END AS title,
+      CASE
+        WHEN c.kind = 'group' THEN 'grup'
+        ELSE u.username
+      END AS partner_username,
       u.avatar AS partner_avatar,
+      (SELECT count(*)::int FROM chat_members WHERE conversation_id = c.id) AS members_count,
       (
-        SELECT body FROM chat_messages
+        SELECT CASE
+          WHEN type = 'photo' THEN COALESCE(NULLIF(body, ''), '[Foto]')
+          ELSE body
+        END
+        FROM chat_messages
         WHERE conversation_id = c.id
         ORDER BY created_at DESC, id DESC LIMIT 1
       ) AS preview,
@@ -105,17 +130,19 @@ export async function GET(request: Request) {
       ) AS unread_count
     FROM chat_members mine
     JOIN chat_conversations c ON c.id = mine.conversation_id
-    JOIN chat_members peer ON peer.conversation_id = c.id AND peer.user_id != mine.user_id
-    JOIN users u ON u.id = peer.user_id
+    LEFT JOIN chat_members peer ON peer.conversation_id = c.id AND peer.user_id != mine.user_id AND c.kind = 'direct'
+    LEFT JOIN users u ON u.id = peer.user_id
     WHERE mine.user_id = ${user.id}
-    ORDER BY COALESCE(
-      (
-        SELECT created_at FROM chat_messages
-        WHERE conversation_id = c.id
-        ORDER BY created_at DESC, id DESC LIMIT 1
-      ),
-      c.created_at
-    ) DESC
+    ORDER BY
+      CASE WHEN c.kind = 'group' THEN 0 ELSE 1 END,
+      COALESCE(
+        (
+          SELECT created_at FROM chat_messages
+          WHERE conversation_id = c.id
+          ORDER BY created_at DESC, id DESC LIMIT 1
+        ),
+        c.created_at
+      ) DESC
   `;
 
   // Ambil semua kontak siswa & pengurus
@@ -141,7 +168,6 @@ export async function GET(request: Request) {
   const myStories = stories.filter((s) => s.user_id === user.id);
   const otherStories = stories.filter((s) => s.user_id !== user.id);
 
-  // Kelompokkan other stories berdasarkan user_id
   type StoryRow = (typeof stories)[number];
   const otherGroupsMap = new Map<string, {
     userId: string;
@@ -226,10 +252,40 @@ export async function POST(request: Request) {
     if (!member) {
       return NextResponse.json({ error: 'Chat nggak ditemukan.' }, { status: 404 });
     }
+
+    if (data.type === 'text' && !data.body.trim()) {
+      return NextResponse.json({ error: 'Pesan tidak boleh kosong.' }, { status: 400 });
+    }
+    if (data.type === 'photo' && !data.mediaUrl) {
+      return NextResponse.json({ error: 'Foto wajib dipilih.' }, { status: 400 });
+    }
+
     await sql`
-      INSERT INTO chat_messages (id, conversation_id, sender_id, body)
-      VALUES (${data.id}, ${data.conversation}, ${user.id}, ${data.body})
+      INSERT INTO chat_messages (
+        id, conversation_id, sender_id, body, type, media_url, reply_id, reply_from, reply_text
+      ) VALUES (
+        ${data.id}, ${data.conversation}, ${user.id}, ${data.body},
+        ${data.type}, ${data.mediaUrl || null},
+        ${data.replyId || null}, ${data.replyFrom || null}, ${data.replyText || null}
+      )
       ON CONFLICT (id) DO NOTHING
+    `;
+    return NextResponse.json({ ok: true });
+  }
+
+  if (data.action === 'delete_message') {
+    const [msg] = await sql`
+      SELECT sender_id FROM chat_messages WHERE id = ${data.messageId}
+    `;
+    if (!msg) {
+      return NextResponse.json({ error: 'Pesan tidak ditemukan.' }, { status: 404 });
+    }
+    if (msg.sender_id !== user.id && user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Tidak berhak menghapus pesan ini.' }, { status: 403 });
+    }
+
+    await sql`
+      DELETE FROM chat_messages WHERE id = ${data.messageId}
     `;
     return NextResponse.json({ ok: true });
   }

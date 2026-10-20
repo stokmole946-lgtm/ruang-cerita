@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  ArrowUUpLeft,
   Camera,
   Chats,
   Check,
   Checks,
   CircleDashed,
+  DotsThreeVertical,
   FloppyDisk,
   Image as ImageIcon,
   PaperPlaneRight,
@@ -16,6 +18,7 @@ import {
   TextT,
   Trash,
   UserCircle,
+  UsersThree,
   X,
 } from '@phosphor-icons/react';
 
@@ -31,9 +34,11 @@ export interface UserProfile {
 
 export interface Conversation {
   id: string;
+  kind: 'direct' | 'group';
   title: string;
   partner_username: string;
   partner_avatar: string | null;
+  members_count: number;
   preview: string | null;
   last_message_at: string | null;
   unread_count: number;
@@ -50,7 +55,14 @@ export interface Contact {
 export interface Message {
   id: string;
   sender_id: string;
+  sender_name: string;
+  sender_username: string;
   body: string;
+  type: 'text' | 'photo';
+  media_url: string | null;
+  reply_id: string | null;
+  reply_from: string | null;
+  reply_text: string | null;
   created_at: string;
   read: boolean;
 }
@@ -78,13 +90,19 @@ export interface StoryGroup {
   items: Story[];
 }
 
+interface ReplyTarget {
+  id: string;
+  from: string;
+  text: string;
+}
+
 const COLOR_PRESETS = [
-  '#10B981', // Emerald
-  '#005C4B', // Dark Teal
-  '#0284C7', // Sky Blue
-  '#8B5CF6', // Purple
-  '#D97706', // Amber
-  '#111827', // Dark Slate
+  '#10B981',
+  '#005C4B',
+  '#0284C7',
+  '#8B5CF6',
+  '#D97706',
+  '#111827',
 ];
 
 async function chatApi(body?: object, id?: string) {
@@ -99,16 +117,46 @@ async function chatApi(body?: object, id?: string) {
   return data;
 }
 
+function compressImage(file: File, maxDim = 1280): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error('File gambar tidak valid'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas tidak tersedia'));
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ChatClient() {
   const [tab, setTab] = useState<'chats' | 'stories' | 'profile'>('chats');
   const [userId, setUserId] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [myStories, setMyStories] = useState<Story[]>([]);
   const [otherGroups, setOtherGroups] = useState<StoryGroup[]>([]);
 
-  // Chat Room State
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -117,7 +165,11 @@ export function ChatClient() {
   const [errorMsg, setErrorMsg] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Story Creator State
+  const [replyingTo, setReplyingTo] = useState<ReplyTarget | null>(null);
+  const [chatPhoto, setChatPhoto] = useState<string | null>(null);
+  const chatPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   const [showStoryCreator, setShowStoryCreator] = useState(false);
   const [storyType, setStoryType] = useState<'text' | 'photo'>('text');
   const [storyText, setStoryText] = useState('');
@@ -126,24 +178,22 @@ export function ChatClient() {
   const [storySubmitting, setStorySubmitting] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Story Viewer State
   const [activeStoryGroup, setActiveStoryGroup] = useState<Story[] | null>(null);
   const [storyIndex, setStoryIndex] = useState(0);
   const [storyProgress, setStoryProgress] = useState(0);
   const [storyPaused, setStoryPaused] = useState(false);
 
-  // Profile Edit State
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
   const [profileWa, setProfileWa] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
-  // Load Main Data
   const loadDashboard = async () => {
     try {
       const data = await chatApi();
       setUserId(data.userId);
+      setUserRole(data.profile?.role || '');
       setProfile(data.profile);
       setProfileName(data.profile.full_name || '');
       setProfileBio(data.profile.bio || '');
@@ -161,7 +211,6 @@ export function ChatClient() {
     loadDashboard();
   }, []);
 
-  // Polling for Active Chat
   useEffect(() => {
     if (!activeChat) return;
     let cancelled = false;
@@ -175,7 +224,7 @@ export function ChatClient() {
           await chatApi({ action: 'read', conversation: activeChat.id });
         }
       } catch {
-        // silent polling error
+        // silent
       }
     };
 
@@ -187,17 +236,15 @@ export function ChatClient() {
     };
   }, [activeChat]);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Story Viewer Progress Timer
   useEffect(() => {
     if (!activeStoryGroup || activeStoryGroup.length === 0) return;
     setStoryProgress(0);
 
-    const DURATION = 5000; // 5s per story
+    const DURATION = 5000;
     const INTERVAL = 50;
     const step = (INTERVAL / DURATION) * 100;
 
@@ -205,7 +252,6 @@ export function ChatClient() {
       if (storyPaused) return;
       setStoryProgress((prev) => {
         if (prev + step >= 100) {
-          // Next story or close
           if (storyIndex < activeStoryGroup.length - 1) {
             setStoryIndex((i) => i + 1);
             return 0;
@@ -222,17 +268,28 @@ export function ChatClient() {
     return () => clearInterval(timer);
   }, [activeStoryGroup, storyIndex, storyPaused]);
 
-  // Start or Open Conversation
+  useEffect(() => {
+    const close = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', close);
+      return () => document.removeEventListener('click', close);
+    }
+  }, [openMenuId]);
+
   const openContact = async (contactId: string, title: string, partnerUsername: string) => {
     try {
       const data = await chatApi({ action: 'start', recipient: contactId });
       setMessages([]);
       setChatInput('');
+      setReplyingTo(null);
+      setChatPhoto(null);
       setActiveChat({
         id: data.id,
+        kind: 'direct',
         title,
         partner_username: partnerUsername,
         partner_avatar: null,
+        members_count: 2,
         preview: null,
         last_message_at: null,
         unread_count: 0,
@@ -242,23 +299,36 @@ export function ChatClient() {
     }
   };
 
-  // Send Message
   const sendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!activeChat || !chatInput.trim() || isSending) return;
+    if (!activeChat || isSending) return;
+    const hasText = chatInput.trim().length > 0;
+    const hasPhoto = !!chatPhoto;
+    if (!hasText && !hasPhoto) return;
 
     const bodyToSend = chatInput.trim();
+    const type = hasPhoto ? 'photo' : 'text';
     const tempId = crypto.randomUUID();
-    const optimisticMessage: Message = {
+
+    const optimistic: Message = {
       id: tempId,
       sender_id: userId,
+      sender_name: profile?.full_name || 'Kamu',
+      sender_username: profile?.username || '',
       body: bodyToSend,
+      type,
+      media_url: chatPhoto,
+      reply_id: replyingTo?.id || null,
+      reply_from: replyingTo?.from || null,
+      reply_text: replyingTo?.text || null,
       created_at: new Date().toISOString(),
       read: false,
     };
 
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => [...prev, optimistic]);
     setChatInput('');
+    setChatPhoto(null);
+    setReplyingTo(null);
     setIsSending(true);
 
     try {
@@ -267,58 +337,74 @@ export function ChatClient() {
         conversation: activeChat.id,
         id: tempId,
         body: bodyToSend,
+        type,
+        mediaUrl: chatPhoto || '',
+        replyId: replyingTo?.id || undefined,
+        replyFrom: replyingTo?.from || undefined,
+        replyText: replyingTo?.text || undefined,
       });
       const data = await chatApi(undefined, activeChat.id);
       setMessages(data.messages || []);
       setConversations((prev) =>
-        prev.map((c) => (c.id === activeChat.id ? { ...c, preview: bodyToSend } : c))
+        prev.map((c) =>
+          c.id === activeChat.id
+            ? { ...c, preview: type === 'photo' ? '[Foto]' : bodyToSend }
+            : c
+        )
       );
     } catch (err: unknown) {
       if (err instanceof Error) setErrorMsg(err.message);
       setChatInput(bodyToSend);
+      if (chatPhoto) setChatPhoto(chatPhoto);
     } finally {
       setIsSending(false);
     }
   };
 
-  // Handle Photo Picker for Story
+  const handleChatPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 1280);
+      setChatPhoto(compressed);
+    } catch {
+      setErrorMsg('Gagal memproses foto. Coba lagi.');
+    }
+    e.target.value = '';
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!confirm('Hapus pesan ini?')) return;
+    try {
+      await chatApi({ action: 'delete_message', messageId });
+      if (activeChat) {
+        const data = await chatApi(undefined, activeChat.id);
+        setMessages(data.messages || []);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMsg(err.message);
+    }
+  };
+
+  const startReply = (m: Message) => {
+    setReplyingTo({
+      id: m.id,
+      from: m.sender_id === userId ? 'Kamu' : m.sender_name,
+      text: m.type === 'photo' ? '[Foto]' : m.body.slice(0, 120),
+    });
+    setOpenMenuId(null);
+  };
+
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 1200;
-
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.8);
-          setStoryPhoto(compressed);
-          setStoryType('photo');
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    void compressImage(file, 1200).then((compressed) => {
+      setStoryPhoto(compressed);
+      setStoryType('photo');
+    });
+    e.target.value = '';
   };
 
-  // Submit New Story
   const submitStory = async () => {
     if (storyType === 'text' && !storyText.trim()) return;
     if (storyType === 'photo' && !storyPhoto) return;
@@ -343,7 +429,6 @@ export function ChatClient() {
     }
   };
 
-  // Delete Own Story
   const deleteStory = async (storyId: string) => {
     if (!confirm('Hapus status ini?')) return;
     try {
@@ -355,7 +440,6 @@ export function ChatClient() {
     }
   };
 
-  // Save Profile Changes
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileSaving(true);
@@ -381,9 +465,7 @@ export function ChatClient() {
 
   return (
     <div className={`xora-shell ${activeChat ? 'has-chat' : ''}`}>
-      {/* ── LEFT PANEL / MAIN VIEW ── */}
       <aside className="xora-sidebar">
-        {/* Top Header */}
         <header className="xora-topbar">
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="xora-icon-btn" aria-label="Kembali ke Dashboard">
@@ -396,41 +478,22 @@ export function ChatClient() {
           </div>
         </header>
 
-        {/* 3 Tab Navigation (Chat, Pembaruan, Profil) */}
         <nav className="xora-tabs" aria-label="Tab Menu Xora">
-          <button
-            type="button"
-            onClick={() => setTab('chats')}
-            className={`xora-tab-btn ${tab === 'chats' ? 'active' : ''}`}
-          >
+          <button type="button" onClick={() => setTab('chats')} className={`xora-tab-btn ${tab === 'chats' ? 'active' : ''}`}>
             <div className="flex items-center justify-center gap-1.5">
               <Chats size={18} weight={tab === 'chats' ? 'fill' : 'bold'} />
               <span>Chat</span>
-              {totalUnread > 0 ? (
-                <span className="xora-tab-badge">{totalUnread}</span>
-              ) : null}
+              {totalUnread > 0 ? <span className="xora-tab-badge">{totalUnread}</span> : null}
             </div>
           </button>
-
-          <button
-            type="button"
-            onClick={() => setTab('stories')}
-            className={`xora-tab-btn ${tab === 'stories' ? 'active' : ''}`}
-          >
+          <button type="button" onClick={() => setTab('stories')} className={`xora-tab-btn ${tab === 'stories' ? 'active' : ''}`}>
             <div className="flex items-center justify-center gap-1.5">
               <CircleDashed size={18} weight={tab === 'stories' ? 'fill' : 'bold'} />
               <span>Pembaruan</span>
-              {otherGroups.length > 0 ? (
-                <span className="xora-tab-dot" />
-              ) : null}
+              {otherGroups.length > 0 ? <span className="xora-tab-dot" /> : null}
             </div>
           </button>
-
-          <button
-            type="button"
-            onClick={() => setTab('profile')}
-            className={`xora-tab-btn ${tab === 'profile' ? 'active' : ''}`}
-          >
+          <button type="button" onClick={() => setTab('profile')} className={`xora-tab-btn ${tab === 'profile' ? 'active' : ''}`}>
             <div className="flex items-center justify-center gap-1.5">
               <UserCircle size={18} weight={tab === 'profile' ? 'fill' : 'bold'} />
               <span>Profil</span>
@@ -438,7 +501,6 @@ export function ChatClient() {
           </button>
         </nav>
 
-        {/* ── CONTENT TAB 1: CHATS ── */}
         {tab === 'chats' && (
           <div className="xora-scrollable">
             <div className="p-3">
@@ -452,7 +514,6 @@ export function ChatClient() {
               />
             </div>
 
-            {/* Daftar Obrolan Aktif */}
             <div className="space-y-0.5">
               <p className="xora-section-label">Percakapan Aktif</p>
               {conversations.length ? (
@@ -465,12 +526,14 @@ export function ChatClient() {
                       onClick={() => {
                         setMessages([]);
                         setChatInput('');
+                        setReplyingTo(null);
+                        setChatPhoto(null);
                         setActiveChat(c);
                       }}
                       className={`xora-chat-item ${activeChat?.id === c.id ? 'active' : ''}`}
                     >
-                      <div className="xora-avatar-circle">
-                        {c.title.slice(0, 1).toUpperCase()}
+                      <div className={`xora-avatar-circle ${c.kind === 'group' ? 'bg-[#1a2744] text-[#7dd3fc]' : ''}`}>
+                        {c.kind === 'group' ? <UsersThree size={22} weight="bold" /> : c.title.slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center justify-between">
@@ -489,9 +552,7 @@ export function ChatClient() {
                           {c.preview || 'Ketuk untuk membuka percakapan'}
                         </p>
                       </div>
-                      {c.unread_count > 0 ? (
-                        <span className="xora-unread-pill">{c.unread_count}</span>
-                      ) : null}
+                      {c.unread_count > 0 ? <span className="xora-unread-pill">{c.unread_count}</span> : null}
                     </button>
                   ))
               ) : (
@@ -501,7 +562,6 @@ export function ChatClient() {
               )}
             </div>
 
-            {/* Kontak Seluruh Teman Kelas */}
             <div className="space-y-0.5 pt-3">
               <p className="xora-section-label">Semua Teman Kelas ({contacts.length})</p>
               {contacts
@@ -511,15 +571,8 @@ export function ChatClient() {
                     c.username.toLowerCase().includes(chatSearch.toLowerCase())
                 )
                 .map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => openContact(c.id, c.full_name, c.username)}
-                    className="xora-chat-item"
-                  >
-                    <div className="xora-avatar-circle bg-[#18223a] text-[#5eead4]">
-                      {c.full_name.slice(0, 1).toUpperCase()}
-                    </div>
+                  <button key={c.id} type="button" onClick={() => openContact(c.id, c.full_name, c.username)} className="xora-chat-item">
+                    <div className="xora-avatar-circle bg-[#18223a] text-[#5eead4]">{c.full_name.slice(0, 1).toUpperCase()}</div>
                     <div className="flex-1 min-w-0 text-left">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-sm text-[#eaf2ff] truncate">{c.full_name}</span>
@@ -533,10 +586,8 @@ export function ChatClient() {
           </div>
         )}
 
-        {/* ── CONTENT TAB 2: PEMBARUAN / STORY ── */}
         {tab === 'stories' && (
           <div className="xora-scrollable p-3 space-y-4">
-            {/* Status Saya */}
             <div className="xora-status-card">
               <div
                 className="relative cursor-pointer"
@@ -549,11 +600,7 @@ export function ChatClient() {
                   }
                 }}
               >
-                <div
-                  className={`xora-avatar-circle ${
-                    myStories.length > 0 ? 'ring-2 ring-[#34f5c5]' : ''
-                  }`}
-                >
+                <div className={`xora-avatar-circle ${myStories.length > 0 ? 'ring-2 ring-[#34f5c5]' : ''}`}>
                   {profile?.full_name?.slice(0, 1).toUpperCase() || 'S'}
                 </div>
                 <button
@@ -568,7 +615,6 @@ export function ChatClient() {
                   <Plus size={14} weight="bold" />
                 </button>
               </div>
-
               <div
                 className="flex-1 min-w-0 cursor-pointer"
                 onClick={() => {
@@ -582,12 +628,9 @@ export function ChatClient() {
               >
                 <h3 className="text-sm font-bold text-[#eaf2ff]">Status saya</h3>
                 <p className="text-xs text-[#97a9c9]">
-                  {myStories.length > 0
-                    ? `${myStories.length} pembaruan aktif (ketuk untuk melihat)`
-                    : 'Ketuk untuk menambahkan pembaruan status'}
+                  {myStories.length > 0 ? `${myStories.length} pembaruan aktif (ketuk untuk melihat)` : 'Ketuk untuk menambahkan pembaruan status'}
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => setShowStoryCreator(true)}
@@ -597,10 +640,8 @@ export function ChatClient() {
               </button>
             </div>
 
-            {/* Pembaruan Terkini Teman Kelas */}
             <div className="space-y-1 pt-2">
               <p className="xora-section-label">Pembaruan Terkini</p>
-
               {otherGroups.length > 0 ? (
                 otherGroups.map((group) => (
                   <button
@@ -618,9 +659,7 @@ export function ChatClient() {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <span className="font-bold text-sm text-[#eaf2ff] truncate block">
-                        {group.fullName}
-                      </span>
+                      <span className="font-bold text-sm text-[#eaf2ff] truncate block">{group.fullName}</span>
                       <span className="text-xs text-[#97a9c9] truncate block mt-0.5">
                         {group.items.length} status baru ·{' '}
                         {new Date(group.latestCreatedAt).toLocaleTimeString('id-ID', {
@@ -642,7 +681,6 @@ export function ChatClient() {
           </div>
         )}
 
-        {/* ── CONTENT TAB 3: PROFIL ── */}
         {tab === 'profile' && (
           <div className="xora-scrollable p-4 space-y-5">
             <div className="text-center space-y-2 py-4">
@@ -669,15 +707,8 @@ export function ChatClient() {
             <form onSubmit={saveProfile} className="space-y-4">
               <label className="block">
                 <span className="block text-xs font-bold text-[#97a9c9] mb-1">Nama Lengkap</span>
-                <input
-                  type="text"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  required
-                  className="xora-field"
-                />
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} required className="xora-field" />
               </label>
-
               <label className="block">
                 <span className="block text-xs font-bold text-[#97a9c9] mb-1">Info / Bio</span>
                 <textarea
@@ -689,7 +720,6 @@ export function ChatClient() {
                   className="xora-field resize-none leading-relaxed"
                 />
               </label>
-
               <label className="block">
                 <span className="block text-xs font-bold text-[#97a9c9] mb-1">Nomor WhatsApp</span>
                 <input
@@ -700,7 +730,6 @@ export function ChatClient() {
                   className="xora-field"
                 />
               </label>
-
               <button
                 type="submit"
                 disabled={profileSaving}
@@ -714,42 +743,38 @@ export function ChatClient() {
         )}
       </aside>
 
-      {/* ── RIGHT PANEL / CHAT ROOM ── */}
       <main className="xora-room">
         {activeChat ? (
           <>
-            {/* Room Header */}
             <header className="xora-room-header">
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveChat(null)}
-                  className="xora-icon-btn md:hidden"
-                  aria-label="Kembali ke Daftar Chat"
-                >
+                <button type="button" onClick={() => setActiveChat(null)} className="xora-icon-btn md:hidden" aria-label="Kembali ke Daftar Chat">
                   <ArrowLeft size={22} weight="bold" />
                 </button>
-                <div className="xora-avatar-circle !size-10">
-                  {activeChat.title.slice(0, 1).toUpperCase()}
+                <div className={`xora-avatar-circle !size-10 ${activeChat.kind === 'group' ? 'bg-[#1a2744] text-[#7dd3fc]' : ''}`}>
+                  {activeChat.kind === 'group' ? <UsersThree size={22} weight="bold" /> : activeChat.title.slice(0, 1).toUpperCase()}
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-[#eaf2ff] leading-tight truncate">
-                    {activeChat.title}
-                  </h2>
+                  <h2 className="text-base font-bold text-[#eaf2ff] leading-tight truncate">{activeChat.title}</h2>
                   <p className="text-[11px] text-[#5eead4]">
-                    @{activeChat.partner_username} · X SIJA B
+                    {activeChat.kind === 'group'
+                      ? `${activeChat.members_count} anggota · X SIJA B`
+                      : `@${activeChat.partner_username} · X SIJA B`}
                   </p>
                 </div>
               </div>
             </header>
 
-            {/* Messages Timeline */}
             <div className="xora-messages-container" role="log" aria-label="Riwayat Percakapan">
               {messages.map((m, i) => {
                 const prevDate = i > 0 ? new Date(messages[i - 1].created_at).toDateString() : null;
                 const currDate = new Date(m.created_at).toDateString();
                 const showDate = prevDate !== currDate;
                 const isMine = m.sender_id === userId;
+                const isGroup = activeChat.kind === 'group';
+                const prevSender = i > 0 ? messages[i - 1].sender_id : null;
+                const showSenderName = isGroup && !isMine && prevSender !== m.sender_id;
+                const canDelete = isMine || userRole === 'ADMIN';
 
                 return (
                   <div key={m.id}>
@@ -767,10 +792,27 @@ export function ChatClient() {
                     )}
 
                     <div className={`xora-bubble-row ${isMine ? 'mine' : 'theirs'}`}>
-                      <div className={`xora-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                        <p className="text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
-                          {m.body}
-                        </p>
+                      <div className={`xora-bubble ${isMine ? 'mine' : 'theirs'} ${m.type === 'photo' ? 'photo-bubble' : ''}`}>
+                        {showSenderName && <p className="xora-sender-name">{m.sender_name}</p>}
+
+                        {m.reply_from && (
+                          <div className="xora-reply-quote">
+                            <span className="xora-reply-from">{m.reply_from}</span>
+                            <span className="xora-reply-text">{m.reply_text}</span>
+                          </div>
+                        )}
+
+                        {m.type === 'photo' && m.media_url ? (
+                          <div className="xora-photo-msg">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={m.media_url} alt="Foto pesan" className="rounded-[10px] max-w-[280px] w-full object-cover" loading="lazy" />
+                          </div>
+                        ) : null}
+
+                        {m.body ? (
+                          <p className="text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">{m.body}</p>
+                        ) : null}
+
                         <div className="xora-bubble-footer">
                           <span className="text-[10px] text-[#97a9c9]">
                             {new Date(m.created_at).toLocaleTimeString('id-ID', {
@@ -788,6 +830,31 @@ export function ChatClient() {
                               )}
                             </span>
                           )}
+                          <div className="relative ml-auto">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === m.id ? null : m.id);
+                              }}
+                              className="xora-msg-menu-btn"
+                              aria-label="Opsi pesan"
+                            >
+                              <DotsThreeVertical size={16} weight="bold" />
+                            </button>
+                            {openMenuId === m.id && (
+                              <div className="xora-msg-menu" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => startReply(m)} className="xora-msg-menu-item">
+                                  <ArrowUUpLeft size={16} weight="bold" /> Balas
+                                </button>
+                                {canDelete && (
+                                  <button type="button" onClick={() => deleteMessage(m.id)} className="xora-msg-menu-item danger">
+                                    <Trash size={16} weight="bold" /> Hapus
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -797,8 +864,50 @@ export function ChatClient() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Room Input Composer */}
+            {(replyingTo || chatPhoto) && (
+              <div className="xora-composer-preview">
+                {replyingTo && (
+                  <div className="xora-reply-bar">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-[#34f5c5]">Membalas {replyingTo.from}</p>
+                      <p className="text-[11px] text-[#97a9c9] truncate">{replyingTo.text}</p>
+                    </div>
+                    <button type="button" onClick={() => setReplyingTo(null)} className="xora-icon-btn !size-7" aria-label="Batalkan balasan">
+                      <X size={14} weight="bold" />
+                    </button>
+                  </div>
+                )}
+                {chatPhoto && (
+                  <div className="xora-photo-preview-bar">
+                    <div className="relative size-14 rounded-[8px] overflow-hidden border border-[#23304c]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={chatPhoto} alt="Preview foto" className="size-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setChatPhoto(null)}
+                        className="absolute top-0.5 right-0.5 bg-black/70 rounded-full p-0.5 text-white"
+                        aria-label="Hapus foto"
+                      >
+                        <X size={12} weight="bold" />
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#97a9c9]">Foto siap dikirim</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <form onSubmit={sendMessage} className="xora-composer">
+              <input type="file" ref={chatPhotoInputRef} accept="image/*" className="hidden" onChange={handleChatPhotoSelect} />
+              <button
+                type="button"
+                onClick={() => chatPhotoInputRef.current?.click()}
+                className="xora-attach-btn"
+                aria-label="Lampirkan foto"
+                title="Kirim foto"
+              >
+                <Camera size={20} weight="bold" />
+              </button>
               <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -809,13 +918,13 @@ export function ChatClient() {
                   }
                 }}
                 rows={1}
-                placeholder="Tulis pesan..."
+                placeholder={chatPhoto ? 'Tambahkan keterangan (opsional)...' : 'Tulis pesan...'}
                 className="xora-composer-input"
                 aria-label="Tulis pesan"
               />
               <button
                 type="submit"
-                disabled={isSending || !chatInput.trim()}
+                disabled={isSending || (!chatInput.trim() && !chatPhoto)}
                 className="xora-send-btn"
                 aria-label="Kirim pesan"
               >
@@ -830,19 +939,16 @@ export function ChatClient() {
             </div>
             <h2 className="text-xl font-black text-[#eaf2ff]">Ruang Percakapan Kelas</h2>
             <p className="text-xs text-[#97a9c9] max-w-sm mx-auto mt-1 leading-relaxed">
-              Pilih teman sekelas dari panel kiri untuk mulai mengobrol, berbagi info tugas, atau berdiskusi santai.
+              Buka Grup Kelas X SIJA B atau pilih teman sekelas dari panel kiri untuk mulai mengobrol, berbagi foto, atau berdiskusi santai.
             </p>
           </div>
         )}
 
         {errorMsg ? (
-          <div className="p-3 bg-[#fb7185]/20 text-[#fb7185] border-t border-[#fb7185]/40 text-xs text-center font-bold">
-            {errorMsg}
-          </div>
+          <div className="p-3 bg-[#fb7185]/20 text-[#fb7185] border-t border-[#fb7185]/40 text-xs text-center font-bold">{errorMsg}</div>
         ) : null}
       </main>
 
-      {/* ── MODAL: STORY CREATOR (STATUS BARU) ── */}
       {showStoryCreator && (
         <div className="xora-modal-overlay">
           <div className="xora-story-dialog">
@@ -852,9 +958,7 @@ export function ChatClient() {
                   type="button"
                   onClick={() => setStoryType('text')}
                   className={`px-3 py-1 text-xs font-bold rounded-[6px] border ${
-                    storyType === 'text'
-                      ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]'
-                      : 'bg-transparent text-[#97a9c9] border-[#23304c]'
+                    storyType === 'text' ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]' : 'bg-transparent text-[#97a9c9] border-[#23304c]'
                   }`}
                 >
                   <TextT size={15} className="inline mr-1" />
@@ -867,40 +971,23 @@ export function ChatClient() {
                     photoInputRef.current?.click();
                   }}
                   className={`px-3 py-1 text-xs font-bold rounded-[6px] border ${
-                    storyType === 'photo'
-                      ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]'
-                      : 'bg-transparent text-[#97a9c9] border-[#23304c]'
+                    storyType === 'photo' ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]' : 'bg-transparent text-[#97a9c9] border-[#23304c]'
                   }`}
                 >
                   <Camera size={15} className="inline mr-1" />
                   Status Foto
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowStoryCreator(false)}
-                className="xora-icon-btn"
-                aria-label="Tutup"
-              >
+              <button type="button" onClick={() => setShowStoryCreator(false)} className="xora-icon-btn" aria-label="Tutup">
                 <X size={20} />
               </button>
             </div>
 
-            <input
-              type="file"
-              ref={photoInputRef}
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
+            <input type="file" ref={photoInputRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} />
 
             {storyType === 'text' ? (
               <div className="space-y-3">
-                <div
-                  className="rounded-[10px] p-6 min-h-[180px] flex items-center justify-center transition"
-                  style={{ backgroundColor: storyColor }}
-                >
+                <div className="rounded-[10px] p-6 min-h-[180px] flex items-center justify-center transition" style={{ backgroundColor: storyColor }}>
                   <textarea
                     value={storyText}
                     onChange={(e) => setStoryText(e.target.value)}
@@ -910,17 +997,13 @@ export function ChatClient() {
                     rows={4}
                   />
                 </div>
-
-                {/* Color Palettes Preset Xora */}
                 <div className="flex items-center justify-center gap-2 pt-1">
                   {COLOR_PRESETS.map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => setStoryColor(color)}
-                      className={`size-7 rounded-full border-2 transition ${
-                        storyColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
-                      }`}
+                      className={`size-7 rounded-full border-2 transition ${storyColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'}`}
                       style={{ backgroundColor: color }}
                       title="Ganti warna latar"
                     />
@@ -942,16 +1025,12 @@ export function ChatClient() {
                     </button>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => photoInputRef.current?.click()}
-                    className="p-8 border-2 border-dashed border-[#23304c] rounded-[10px] text-center cursor-pointer hover:bg-[#111a2e]"
-                  >
+                  <div onClick={() => photoInputRef.current?.click()} className="p-8 border-2 border-dashed border-[#23304c] rounded-[10px] text-center cursor-pointer hover:bg-[#111a2e]">
                     <ImageIcon size={36} className="mx-auto text-[#34f5c5] mb-2" />
                     <p className="text-xs font-bold text-[#eaf2ff]">Klik untuk pilih foto status</p>
                     <p className="text-[10px] text-[#97a9c9] mt-0.5">JPG / PNG otomatis dikompresi</p>
                   </div>
                 )}
-
                 <input
                   type="text"
                   value={storyText}
@@ -972,11 +1051,7 @@ export function ChatClient() {
               </button>
               <button
                 type="button"
-                disabled={
-                  storySubmitting ||
-                  (storyType === 'text' && !storyText.trim()) ||
-                  (storyType === 'photo' && !storyPhoto)
-                }
+                disabled={storySubmitting || (storyType === 'text' && !storyText.trim()) || (storyType === 'photo' && !storyPhoto)}
                 onClick={submitStory}
                 className="btn-primary !bg-[#34f5c5] !text-[#070b18] !min-h-[38px] text-xs font-black px-4"
               >
@@ -987,7 +1062,6 @@ export function ChatClient() {
         </div>
       )}
 
-      {/* ── FULLSCREEN STORY VIEWER (ALA WHATSAPP / INSTAGRAM) ── */}
       {activeStoryGroup && activeStoryGroup.length > 0 && (
         <div
           className="xora-story-viewer-overlay"
@@ -996,13 +1070,11 @@ export function ChatClient() {
           onTouchStart={() => setStoryPaused(true)}
           onTouchEnd={() => setStoryPaused(false)}
         >
-          {/* Progress Bars */}
           <div className="xora-story-progress-bar">
             {activeStoryGroup.map((s, idx) => {
               let width = 0;
               if (idx < storyIndex) width = 100;
               else if (idx === storyIndex) width = storyProgress;
-
               return (
                 <div key={s.id} className="xora-progress-track">
                   <div className="xora-progress-fill" style={{ width: `${width}%` }} />
@@ -1011,16 +1083,11 @@ export function ChatClient() {
             })}
           </div>
 
-          {/* Story Header */}
           <div className="xora-story-top-row">
             <div className="flex items-center gap-2">
-              <div className="xora-avatar-circle !size-9">
-                {activeStoryGroup[storyIndex]?.full_name?.slice(0, 1).toUpperCase()}
-              </div>
+              <div className="xora-avatar-circle !size-9">{activeStoryGroup[storyIndex]?.full_name?.slice(0, 1).toUpperCase()}</div>
               <div>
-                <p className="text-sm font-bold text-white leading-tight">
-                  {activeStoryGroup[storyIndex]?.full_name}
-                </p>
+                <p className="text-sm font-bold text-white leading-tight">{activeStoryGroup[storyIndex]?.full_name}</p>
                 <p className="text-[10px] text-white/70">
                   {new Date(activeStoryGroup[storyIndex]?.created_at).toLocaleTimeString('id-ID', {
                     hour: '2-digit',
@@ -1030,7 +1097,6 @@ export function ChatClient() {
                 </p>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               {activeStoryGroup[storyIndex]?.user_id === userId && (
                 <button
@@ -1042,25 +1108,16 @@ export function ChatClient() {
                   <Trash size={20} weight="bold" />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setActiveStoryGroup(null)}
-                className="p-2 text-white/80 hover:text-white"
-                title="Tutup"
-              >
+              <button type="button" onClick={() => setActiveStoryGroup(null)} className="p-2 text-white/80 hover:text-white" title="Tutup">
                 <X size={22} weight="bold" />
               </button>
             </div>
           </div>
 
-          {/* Story Content Area */}
           <div
             className="xora-story-body"
             style={{
-              backgroundColor:
-                activeStoryGroup[storyIndex]?.type === 'text'
-                  ? activeStoryGroup[storyIndex]?.bg_color
-                  : '#070b18',
+              backgroundColor: activeStoryGroup[storyIndex]?.type === 'text' ? activeStoryGroup[storyIndex]?.bg_color : '#070b18',
             }}
           >
             {activeStoryGroup[storyIndex]?.type === 'text' ? (
@@ -1084,25 +1141,19 @@ export function ChatClient() {
             )}
           </div>
 
-          {/* Left / Right Tap Handlers */}
           <div
             className="xora-story-tap-left"
             onClick={(e) => {
               e.stopPropagation();
-              if (storyIndex > 0) {
-                setStoryIndex((i) => i - 1);
-              }
+              if (storyIndex > 0) setStoryIndex((i) => i - 1);
             }}
           />
           <div
             className="xora-story-tap-right"
             onClick={(e) => {
               e.stopPropagation();
-              if (storyIndex < activeStoryGroup.length - 1) {
-                setStoryIndex((i) => i + 1);
-              } else {
-                setActiveStoryGroup(null);
-              }
+              if (storyIndex < activeStoryGroup.length - 1) setStoryIndex((i) => i + 1);
+              else setActiveStoryGroup(null);
             }}
           />
         </div>
