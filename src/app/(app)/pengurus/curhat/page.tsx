@@ -9,6 +9,7 @@ import {
   Siren,
   Trash,
   User,
+  WhatsappLogo,
 } from "@phosphor-icons/react/dist/ssr";
 import { deleteCurhatAction, replyCurhatAction } from "@/app/curhat-actions";
 import { Notice } from "@/components/notice";
@@ -209,7 +210,7 @@ export default async function PengurusCurhatPage({
                           className="badge !bg-[#25D366] text-white hover:opacity-90 flex items-center gap-1 text-[10px] font-black"
                           title="Hubungi langsung via WhatsApp"
                         >
-                          💬 Chat WA ({c.student_whatsapp})
+                          <WhatsappLogo size={16} aria-hidden="true" />Chat WhatsApp
                         </a>
                       ) : null}
                     </div>

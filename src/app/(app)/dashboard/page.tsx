@@ -3,8 +3,13 @@ import { redirect } from "next/navigation";
 import {
   ArrowUpRight,
   Broom,
+  Star,
+  Camera,
+  CheckCircle,
+  Warning,
   CalendarBlank,
   ChatDots,
+  Chats,
   ChatTeardropDots,
   Clock,
   EnvelopeSimple,
@@ -75,6 +80,31 @@ export default async function Dashboard({
 
       <Notice {...params} />
 
+      {/* Akses Cepat Chat Kelas (Xora Style) */}
+      <section className="panel p-5 bg-[#070b18] text-[#eaf2ff] border-2 border-[#20201e] shadow-[4px_4px_0_#20201e] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="badge !bg-[#34f5c5] !text-[#070b18] text-xs font-black">CHAT KELAS</span>
+            <span className="text-xs text-[#97a9c9] font-medium">Ruang ngobrol teman sekelas</span>
+          </div>
+          <h2 className="text-xl font-black text-[#eaf2ff] flex items-center gap-2">
+            <Chats size={24} className="text-[#34f5c5]" weight="bold" />
+            Ngobrol santai bareng teman sekelas
+          </h2>
+          <p className="text-xs text-[#97a9c9]">
+            Pilih teman kelas, kirim pesan, dan ngobrol langsung di sini.
+          </p>
+        </div>
+        <Link
+          href="/chat"
+          className="btn-primary !bg-[#34f5c5] !text-[#070b18] hover:!bg-[#5eead4] !min-h-[46px] text-sm font-black shrink-0 flex items-center gap-2"
+        >
+          <Chats size={20} weight="bold" />
+          Buka Chat Kelas
+          <ArrowUpRight size={18} weight="bold" />
+        </Link>
+      </section>
+
       {/* Hero Utama: FITUR CURHAT KAPAN SAJA (Bebas) */}
       <section className="panel p-6 sm:p-8 bg-[#ffdb59] border-2 border-[#20201e] space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -114,7 +144,7 @@ export default async function Dashboard({
                 }`}
               >
                 {lastCurhat.status === "DONE"
-                  ? "✓ Sudah Diberi Solusi"
+                  ? "Sudah dibalas"
                   : lastCurhat.status === "IN_PROGRESS"
                   ? "Sedang Ditangani"
                   : "Menunggu Pengurus"}
@@ -165,7 +195,7 @@ export default async function Dashboard({
           >
             {currentReport
               ? isReportDone
-                ? "✓ Selesai Ditanggapi"
+                ? "Sudah dibalas"
                 : "Sudah Dikirim"
               : "Belum Diisi"}
           </span>
@@ -204,7 +234,7 @@ export default async function Dashboard({
             href={currentReport ? "/riwayat" : "/cerita-baru"}
             className="btn-secondary !min-h-[40px] !text-xs font-black"
           >
-            {currentReport ? "Buka Riwayat Laporan Bulanan →" : "✍️ Isi Laporan Bulanan Sekarang →"}
+            {currentReport ? "Cek laporan bulanan" : "Isi laporan bulanan"}
           </Link>
           <span className="text-[11px] text-[#555951]">
             {currentReport
@@ -224,7 +254,7 @@ export default async function Dashboard({
               Piket Hari {piketInfo.schedule.dayName}
             </h3>
             <p className="text-xs text-[#555951] mt-0.5">
-              Penanggung Jawab: <strong className="text-[#20201e]">⭐ {piketInfo.schedule.coordinator.name}</strong>
+              Penanggung jawab: <strong className="text-[#20201e] inline-flex items-center gap-1"><Star size={16} weight="fill" aria-hidden="true" />{piketInfo.schedule.coordinator.name}</strong>
             </p>
           </div>
 
@@ -233,7 +263,8 @@ export default async function Dashboard({
               todayPiketDoc ? "!bg-[#b9e2ce] text-[#113a27]" : "!bg-[#ffa18b] text-[#481c17]"
             }`}
           >
-            {todayPiketDoc ? "✓ Sudah Difoto & Rapi" : "⚠️ Wajib Foto Piket"}
+            {todayPiketDoc ? <CheckCircle size={16} aria-hidden="true" /> : <Warning size={16} aria-hidden="true" />}
+            {todayPiketDoc ? "Foto sudah masuk" : "Belum upload foto"}
           </span>
         </div>
 
@@ -248,14 +279,14 @@ export default async function Dashboard({
                     m.isCoordinator ? "bg-[#ffdb59]" : "bg-white"
                   }`}
                 >
-                  {m.isCoordinator ? "⭐ " : ""}{m.name}
+                  {m.isCoordinator ? <Star size={12} weight="fill" className="inline mr-1" aria-label="Penanggung jawab" /> : null}{m.name}
                 </span>
               ))}
             </div>
           </div>
 
           <Link href="/piket" className="btn-primary !min-h-[38px] !py-1 !px-4 text-xs font-black">
-            {todayPiketDoc ? "Lihat Foto Piket →" : "📸 Unggah Foto Piket →"}
+            <Camera size={18} aria-hidden="true" />{todayPiketDoc ? "Lihat foto" : "Upload foto"}
           </Link>
         </div>
       </section>

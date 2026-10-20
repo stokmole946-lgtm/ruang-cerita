@@ -85,7 +85,7 @@ export default async function ProfilePage({
           <div>
             <h3 className="text-xl font-extrabold">Kontak Darurat / WhatsApp</h3>
             <p className="text-sm text-[#555951] mt-1">
-              Nomor ini dapat dilihat pengurus jika kamu mengirim curhat berlabel <strong>🚨 Mendesak / Urgent</strong> agar pengurus bisa segera membantumu.
+              Pengurus bisa menghubungimu lewat nomor ini saat kamu kirim cerita <strong>mendesak</strong> dengan nama terbuka.
             </p>
           </div>
           <form action={updateContactAction} className="space-y-3">

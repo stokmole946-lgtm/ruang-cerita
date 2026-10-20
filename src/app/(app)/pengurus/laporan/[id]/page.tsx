@@ -135,7 +135,7 @@ export default async function ReportDetail({
             <div className="flex items-center justify-between text-xs font-bold text-[#555951] mb-1">
               <span>DARI SISWA:</span>
               <span className="text-[#345bdc]">
-                {report.reveal_sender ? "✓ Siswa mengizinkan namanya terlihat" : "✗ Siswa minta namanya dirahasiakan"}
+                {report.reveal_sender ? "Nama boleh ditampilkan" : "Pengirim ingin namanya dirahasiakan"}
               </span>
             </div>
             <p className="text-base leading-7 whitespace-pre-wrap">{report.message}</p>

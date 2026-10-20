@@ -5,6 +5,7 @@ import {
   Camera,
   CheckCircle,
   Sparkle,
+  Star,
   Trash,
   Warning,
 } from "@phosphor-icons/react/dist/ssr";
@@ -55,7 +56,7 @@ export default async function PiketPage({
           </span>
           <h1 className="page-title">Jadwal & Foto Piket.</h1>
           <p className="text-sm text-[#555951]">
-            Jadwal 32 siswa, koordinator penanggung jawab (⭐), dan wajib setor foto dokumentasi kebersihan setiap hari.
+            Cek giliranmu, beresin kelas bareng, lalu upload foto hasilnya.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -80,7 +81,7 @@ export default async function PiketPage({
             </h2>
             <p className="text-xs text-[#555951] mt-0.5">
               Koordinator Penanggung Jawab:{" "}
-              <strong className="text-[#20201e]">⭐ {todayInfo.schedule.coordinator.name}</strong>
+              <strong className="text-[#20201e] inline-flex items-center gap-1"><Star size={16} weight="fill" aria-hidden="true" />{todayInfo.schedule.coordinator.name}</strong>
             </p>
           </div>
 
@@ -115,7 +116,7 @@ export default async function PiketPage({
                 }`}
               >
                 {m.isCoordinator ? <Sparkle size={13} weight="fill" className="text-[#d97706]" /> : null}
-                {m.name} {m.isCoordinator ? "(⭐ Koordinator)" : ""}
+                {m.name} {m.isCoordinator ? "(PJ)" : ""}
               </span>
             ))}
           </div>
@@ -155,7 +156,7 @@ export default async function PiketPage({
 
                 <p className="text-xs text-[#555951] leading-5">
                   Terima kasih regu piket hari ini dan koordinator{" "}
-                  <strong>⭐ {todayInfo.schedule.coordinator.name}</strong> atas dedikasinya menjaga ruang kelas kita tetap nyaman belajar!
+                  <strong>{todayInfo.schedule.coordinator.name}</strong>. Kelas bersih, belajar jadi lebih nyaman!
                 </p>
 
                 {user.role === "ADMIN" || user.id === todayDoc.uploaded_by ? (
@@ -188,7 +189,7 @@ export default async function PiketPage({
               Jadwal Lengkap Senin — Jumat
             </h2>
             <p className="text-xs text-[#555951] mt-0.5">
-              32 siswa kelas X SIJA B terbagi merata dengan 1 penanggung jawab (⭐) per hari.
+              Ada 1 penanggung jawab tiap hari, ditandai ikon bintang.
             </p>
           </div>
         </div>
@@ -220,7 +221,7 @@ export default async function PiketPage({
                   </span>
                   <div className="flex items-center gap-1.5 font-black text-sm text-[#20201e]">
                     <Sparkle size={16} weight="fill" className="text-[#d97706]" />
-                    {day.coordinator.name} ⭐
+                    {day.coordinator.name}
                   </div>
                 </div>
 
@@ -236,7 +237,7 @@ export default async function PiketPage({
                           {m.name}
                         </span>
                         {m.isCoordinator ? (
-                          <span className="badge !bg-[#ffdb59] text-[10px] py-0 px-1.5">PJ ⭐</span>
+                          <span className="badge !bg-[#ffdb59] text-[10px] py-0 px-1.5"><Star size={12} weight="fill" aria-hidden="true" />PJ</span>
                         ) : null}
                       </li>
                     ))}

@@ -13,6 +13,7 @@ import {
   Megaphone,
   ChatTeardropDots,
   Broom,
+  Chats,
   List,
   X,
 } from "@phosphor-icons/react";
@@ -40,6 +41,7 @@ export function Navigation({
   const links = admin
     ? ([
         ["/pengurus", "Dashboard", House],
+        ["/chat", "Chat kelas", Chats],
         ["/pengurus/curhat", "Curhat Siswa", ChatTeardropDots],
         ["/piket", "Piket Kelas", Broom],
         ["/pengurus/laporan", "Laporan Bulanan", Notebook],
@@ -49,6 +51,7 @@ export function Navigation({
       ] as const)
     : ([
         ["/dashboard", "Beranda", House],
+        ["/chat", "Chat kelas", Chats],
         ["/curhat", "Curhat", ChatTeardropDots],
         ["/piket", "Piket Kelas", Broom],
         ["/riwayat", "Laporan", Notebook],

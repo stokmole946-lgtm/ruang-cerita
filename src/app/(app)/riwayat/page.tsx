@@ -78,7 +78,7 @@ export default async function HistoryPage() {
                     <p className="mt-3 text-sm leading-6 whitespace-pre-wrap">{r.message}</p>
                     {r.forwarded_at ? (
                       <p className="text-xs font-bold text-[#113a27] mt-3 bg-[#b9e2ce] p-2 border border-[#20201e] rounded-[4px]">
-                        ✓ Pesan sudah disetujui & diteruskan ke kotak masuk penerima.
+                        <CheckCircle size={16} className="inline mr-1" aria-hidden="true" /> Pesan sudah diteruskan ke penerima.
                       </p>
                     ) : (
                       <p className="text-xs text-[#555951] mt-3 italic">Menunggu verifikasi pengurus untuk diteruskan.</p>

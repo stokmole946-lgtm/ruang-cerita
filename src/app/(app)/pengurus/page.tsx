@@ -1,6 +1,9 @@
 import Link from "next/link";
 import {
   Broom,
+  Chats,
+  Star,
+  Warning,
   ChatTeardropDots,
   CheckCircle,
   HeartBreak,
@@ -127,6 +130,10 @@ export default async function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/chat" className="btn-secondary">
+            <Chats size={18} weight="bold" />
+            Chat kelas
+          </Link>
           <Link href="/pengurus/curhat" className="btn-primary">
             <ChatTeardropDots size={18} weight="fill" />
             Buka Curhat Siswa ({curhatStats.pending})
@@ -164,12 +171,13 @@ export default async function AdminDashboard() {
                 todayPiketDoc ? "!bg-[#b9e2ce] text-[#113a27]" : "!bg-[#ffa18b] text-[#481c17]"
               }`}
             >
-              {todayPiketDoc ? "✓ Sudah Difoto" : "⚠️ Belum Ada Foto"}
+              {todayPiketDoc ? <CheckCircle size={16} aria-hidden="true" /> : <Warning size={16} aria-hidden="true" />}
+              {todayPiketDoc ? "Foto sudah masuk" : "Belum ada foto"}
             </span>
           </div>
           <h3 className="text-lg font-black flex items-center gap-2">
             <Broom size={20} weight="fill" className="text-[#345bdc]" />
-            Piket Hari {piketInfo.schedule.dayName} · Koordinator: ⭐ {piketInfo.schedule.coordinator.name}
+            Piket {piketInfo.schedule.dayName} · <Star size={16} weight="fill" aria-label="Penanggung jawab" /> {piketInfo.schedule.coordinator.name}
           </h3>
           <p className="text-xs text-[#555951]">
             Petugas: {piketInfo.schedule.members.map((m) => m.name).join(", ")}
@@ -359,7 +367,7 @@ export default async function AdminDashboard() {
                         <span className="text-[#353930]">
                           Untuk: <strong>{r.recipient_name}</strong>{" "}
                           {r.forwarded_at ? (
-                            <span className="text-[#059669] font-bold">(✓ Terkirim)</span>
+                            <span className="text-[#059669] font-bold">(Terkirim)</span>
                           ) : (
                             <span className="text-[#d97706] font-bold">(Belum diteruskan)</span>
                           )}

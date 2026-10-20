@@ -127,7 +127,7 @@ export default async function ReportsPage({
                         {answeredCount}/4 bagian ditangani
                       </span>
                       {report.forwarded_at ? (
-                        <span className="text-[#113a27] font-bold">✓ Pesan diteruskan</span>
+                        <span className="text-[#113a27] font-bold">Pesan diteruskan</span>
                       ) : (
                         <span className="text-[#a54c15]">Pesan belum diteruskan</span>
                       )}
