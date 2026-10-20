@@ -29,6 +29,22 @@ interface AttendanceData {
   history: RecordItem[];
 }
 
+interface MonthlyData {
+  period: { key: string; label: string };
+  totalSessions: number;
+  totals: Record<AttendanceStatus, number>;
+  attendancePercentage: number;
+  records: Array<RecordItem & { source: string; late_after: string; closed_at: string }>;
+}
+
+function currentJakartaMonth() {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  }).format(new Date());
+}
+
 async function getAttendance(mode = 'summary') {
   const response = await fetch(`/api/attendance?mode=${mode}`, { cache: 'no-store' });
   const data = await response.json();
@@ -41,6 +57,8 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
   const [qrImage, setQrImage] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState('');
+  const [month, setMonth] = useState(currentJakartaMonth);
+  const [monthly, setMonthly] = useState<MonthlyData | null>(null);
   const generationRef = useRef(0);
 
   const refresh = async () => {
@@ -78,6 +96,18 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
       window.clearInterval(countdownTimer);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/attendance/monthly?month=${month}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Gagal memuat log bulanan.');
+        if (!cancelled) setMonthly(result);
+      })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Gagal memuat log bulanan.'); });
+    return () => { cancelled = true; };
+  }, [month]);
 
   const summary = (data?.history || []).reduce<Record<AttendanceStatus, number>>(
     (result, item) => {
@@ -171,6 +201,25 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
             </div>
           )) : <p className="empty">Belum ada riwayat absensi.</p>}
         </div>
+      </section>
+
+      <section className="panel p-5 sm:p-7">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+          <div><span className="badge !bg-[#c5d3ff] mb-2">LOG BULANAN</span><h2 className="text-2xl font-black">Riwayat per bulan.</h2><p className="text-xs text-[#555951] mt-1">Hanya data akunmu sendiri dan sesi yang sudah ditutup.</p></div>
+          <label className="text-xs font-black">Pilih bulan<input type="month" className="field mt-1 !py-2" value={month} onChange={(event) => setMonth(event.target.value)} min="2024-01" max="2100-12" /></label>
+        </div>
+        {monthly ? <>
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-center bg-[#ffdb59] border-2 border-[#20201e] rounded-[10px] p-4 shadow-[3px_3px_0_#20201e] mb-5">
+            <div><p className="font-black text-lg">{monthly.period.label}</p><p className="text-xs font-bold">{monthly.totalSessions} sesi final</p></div>
+            <div className="text-left sm:text-right"><p className="text-4xl font-black">{monthly.attendancePercentage}%</p><p className="text-[10px] font-black uppercase">Kehadiran</p></div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">
+            {(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => <div key={status} className={`border-2 border-[#20201e] rounded-[7px] p-2 ${attendanceStatusClass(status)}`}><p className="text-[10px] font-black">{ATTENDANCE_STATUS[status]}</p><p className="text-2xl font-black">{monthly.totals[status]}</p></div>)}
+          </div>
+          <div className="space-y-2">
+            {monthly.records.length ? monthly.records.map((item) => <article key={item.id} className="border-2 border-[#20201e] rounded-[8px] p-3 bg-white flex items-center justify-between gap-3 shadow-[2px_2px_0_#20201e]"><div><p className="font-black text-sm">{item.title}</p><p className="text-xs text-[#555951]">{item.starts_at ? new Date(item.starts_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }) : ''}{item.note ? ` · ${item.note}` : ''}</p></div><span className={`badge shrink-0 ${attendanceStatusClass(item.status)}`}>{ATTENDANCE_STATUS[item.status]}</span></article>) : <p className="empty">Belum ada sesi final pada bulan ini.</p>}
+          </div>
+        </> : <p className="empty">Memuat log bulanan...</p>}
       </section>
     </div>
   );

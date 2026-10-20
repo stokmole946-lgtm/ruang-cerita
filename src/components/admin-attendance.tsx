@@ -41,6 +41,30 @@ interface DashboardData {
   recentSessions: Array<Session & { recorded_count: number }>;
 }
 
+interface MonthlyStudent {
+  id: string;
+  full_name: string;
+  username: string;
+  avatar: string | null;
+  present: number;
+  late: number;
+  excused: number;
+  sick: number;
+  absent: number;
+  attendance_percentage: number;
+}
+
+interface MonthlyClassData {
+  period: { key: string; label: string };
+  totalSessions: number;
+  totals: Record<AttendanceStatus, number>;
+  students: MonthlyStudent[];
+}
+
+function currentJakartaMonth() {
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date());
+}
+
 async function attendanceApi(body?: object) {
   const response = await fetch('/api/attendance', {
     method: body ? 'POST' : 'GET',
@@ -61,6 +85,9 @@ export function AdminAttendance() {
   const [busy, setBusy] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'warning' | 'error'; text: string } | null>(null);
+  const [month, setMonth] = useState(currentJakartaMonth);
+  const [monthly, setMonthly] = useState<MonthlyClassData | null>(null);
+  const [monthlySearch, setMonthlySearch] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerControls = useRef<{ stop: () => void } | null>(null);
   const scanning = useRef(false);
@@ -78,6 +105,18 @@ export function AdminAttendance() {
     const timer = window.setInterval(() => void refresh(), 3_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/attendance/monthly?month=${month}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Gagal memuat rekap bulanan.');
+        if (!cancelled) setMonthly(result);
+      })
+      .catch((error) => { if (!cancelled) setFeedback({ kind: 'error', text: error instanceof Error ? error.message : 'Gagal memuat rekap.' }); });
+    return () => { cancelled = true; };
+  }, [month, data?.activeSession]);
 
   useEffect(() => {
     if (!scannerOpen || !videoRef.current) return;
@@ -218,6 +257,21 @@ export function AdminAttendance() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="panel p-5 sm:p-7">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+          <div><span className="badge !bg-[#c5d3ff] mb-2">REKAP BULANAN</span><h2 className="text-2xl font-black">Log kehadiran kelas.</h2><p className="text-xs text-[#555951] mt-1">Hanya sesi yang sudah ditutup. Data sesi aktif tidak dihitung.</p></div>
+          <div className="flex flex-wrap items-end gap-2"><label className="text-xs font-black">Bulan<input type="month" className="field mt-1 !py-2" value={month} onChange={(event) => setMonth(event.target.value)} min="2024-01" max="2100-12" /></label><a className="btn-primary !min-h-[40px] text-xs" href={`/api/attendance/export?month=${month}`}>Export CSV</a></div>
+        </div>
+        {monthly ? <>
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-center bg-[#ffdb59] border-2 border-[#20201e] rounded-[10px] p-4 shadow-[3px_3px_0_#20201e] mb-4"><div><p className="font-black text-lg">{monthly.period.label}</p><p className="text-xs font-bold">{monthly.totalSessions} sesi final · {monthly.students.length} siswa</p></div><div className="text-3xl font-black">{monthly.totalSessions ? Math.round(((monthly.totals.PRESENT + monthly.totals.LATE) / (monthly.totalSessions * Math.max(monthly.students.length, 1))) * 100) : 0}%</div></div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">{(Object.keys(ATTENDANCE_STATUS) as AttendanceStatus[]).map((status) => <div key={status} className={`border-2 border-[#20201e] rounded-[7px] p-2 ${attendanceStatusClass(status)}`}><p className="text-[10px] font-black">{ATTENDANCE_STATUS[status]}</p><p className="text-2xl font-black">{monthly.totals[status]}</p></div>)}</div>
+          <label className="relative block mb-4 max-w-sm"><MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2" /><input className="field !pl-10 !py-2" value={monthlySearch} onChange={(event) => setMonthlySearch(event.target.value)} placeholder="Cari rekap siswa..." /></label>
+          <div className="overflow-x-auto border-2 border-[#20201e] rounded-[9px]">
+            <table className="w-full min-w-[760px] text-sm"><thead className="bg-[#eeeee5] border-b-2 border-[#20201e]"><tr>{['Siswa', 'Hadir', 'Telat', 'Izin', 'Sakit', 'Alfa', 'Persentase'].map((heading) => <th key={heading} className="p-3 text-left text-xs font-black uppercase">{heading}</th>)}</tr></thead><tbody className="divide-y divide-[#20201e]/20">{monthly.students.filter((student) => `${student.full_name} ${student.username}`.toLowerCase().includes(monthlySearch.toLowerCase())).map((student) => <tr key={student.id} className="bg-white"><td className="p-3"><p className="font-black">{student.full_name}</p><p className="text-xs text-[#555951]">@{student.username}</p></td><td className="p-3 font-black">{student.present}</td><td className="p-3 font-black">{student.late}</td><td className="p-3 font-black">{student.excused}</td><td className="p-3 font-black">{student.sick}</td><td className="p-3 font-black">{student.absent}</td><td className="p-3"><span className={`badge ${student.attendance_percentage >= 80 ? '!bg-[#b9e2ce]' : student.attendance_percentage >= 60 ? '!bg-[#ffdb59]' : '!bg-[#ffa18b]'}`}>{student.attendance_percentage}%</span></td></tr>)}</tbody></table>
+          </div>
+        </> : <p className="empty">Memuat rekap bulanan...</p>}
       </section>
 
       {scannerOpen && (
