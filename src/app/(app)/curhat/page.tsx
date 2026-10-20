@@ -39,9 +39,9 @@ export default async function CurhatPage({
           <span className="badge !bg-[#c5d3ff] mb-2 flex items-center gap-1.5 w-fit">
             <ChatTeardropDots size={16} weight="fill" /> Ruang Curhat Bebas · X SIJA B
           </span>
-          <h1 className="page-title">Curhat ke Pengurus.</h1>
+          <h1 className="page-title">Cerita aja dulu.</h1>
           <p className="text-sm text-[#555951]">
-            Kapan saja, di mana saja. Kamu tidak perlu menunggu akhir bulan untuk bercerita atau meminta bantuan.
+            Nggak harus nunggu masalah besar. Kalau pengin cerita, di sini tempatnya.
           </p>
         </div>
         <span className="badge !bg-[#b9e2ce]">Kapan Saja</span>
@@ -52,7 +52,7 @@ export default async function CurhatPage({
       {/* Form Curhat Baru */}
       <section className="panel p-6 sm:p-8 bg-[#fffef9] space-y-6">
         <div className="border-b-2 border-[#20201e] pb-4">
-          <span className="badge !bg-[#ffdb59] text-xs font-black mb-1">FORMULIR CURHAT</span>
+          <span className="badge !bg-[#ffdb59] text-xs font-black mb-1">GILIRAN KAMU CERITA</span>
           <h2 className="text-2xl font-black">Ada apa hari ini? Tumpahkan di sini.</h2>
           <p className="text-xs text-[#555951] mt-1">
             Ceritakan masalah pelajaran, unek-unek kelas, capek, atau hal personal yang ingin kamu sampaikan ke pengurus.
@@ -70,7 +70,7 @@ export default async function CurhatPage({
               rows={5}
               minLength={3}
               maxLength={5000}
-              placeholder="Tulis apa saja yang sedang membebani pikiranmu atau yang ingin kamu ceritakan ke pengurus kelas..."
+              placeholder="Belakangan ini aku ngerasa…"
               className="field w-full leading-relaxed resize-y"
             />
             <span className="block text-right text-[11px] text-[#555951] mt-1">
@@ -108,7 +108,7 @@ export default async function CurhatPage({
 
           <div className="pt-2 flex flex-wrap items-center justify-between gap-4">
             <button type="submit" className="btn-primary !min-h-[48px] !px-6 !text-base">
-              <PaperPlaneTilt size={20} weight="bold" /> Kirim Curhat Sekarang
+              <PaperPlaneTilt size={20} weight="bold" /> Kirim ceritaku
             </button>
             <span className="text-xs text-[#555951] font-medium">
               Pengurus kelas akan membaca dan memberikan solusi secepatnya.

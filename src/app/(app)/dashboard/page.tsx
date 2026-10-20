@@ -67,7 +67,7 @@ export default async function Dashboard({
           <span className="badge !bg-[#ffdb59] mb-2">{periodLabel()} · X SIJA B</span>
           <h1 className="page-title">Halo, {user.fullName.split(" ")[0]}!</h1>
           <p className="text-sm text-[#555951]">
-            Website ini adalah tempat kamu curhat online ke pengurus kelas secara aman dan bebas.
+            Lagi banyak pikiran? Cerita aja. Pengurus siap dengerin.
           </p>
         </div>
         <span className="badge !bg-[#b9e2ce]">Akun Siswa</span>
@@ -81,19 +81,19 @@ export default async function Dashboard({
           <div className="flex items-center gap-2">
             <span className="badge !bg-white text-xs font-black flex items-center gap-1.5">
               <ChatTeardropDots size={16} weight="fill" className="text-[#345bdc]" />
-              FITUR BARU · CURHAT KAPAN SAJA
+              RUANG BUAT CERITAMU
             </span>
             <span className="text-xs font-bold text-[#20201e]/80">Bebas & Tanpa Batas</span>
           </div>
-          <span className="badge !bg-[#b9e2ce] text-xs">Aktif 24/7</span>
+          <span className="badge !bg-[#b9e2ce] text-xs">Kapan aja</span>
         </div>
 
         <div>
           <h2 className="text-3xl sm:text-4xl font-black leading-tight text-[#20201e]">
-            Ada unek-unek hari ini? Curhat ke pengurus sekarang.
+            Ada yang pengin kamu ceritain?
           </h2>
           <p className="mt-2 text-sm text-[#353930] leading-6 max-w-2xl font-medium">
-            Tidak perlu menunggu akhir bulan! Kamu bisa curhat kapan saja, di mana saja, berkali-kali. Mau curhat masalah tugas, capek, atau minta bantuan mediasi pengurus, kami siap mendengarkan.
+            Soal tugas, teman, atau hari yang bikin capek. Tulis aja di sini, nggak perlu nunggu akhir bulan.
           </p>
         </div>
 
@@ -134,11 +134,11 @@ export default async function Dashboard({
         {/* Tombol Aksi Curhat */}
         <div className="pt-1 flex flex-wrap items-center gap-4">
           <Link href="/curhat" className="btn-primary !min-h-[50px] !text-base !px-6">
-            💬 Tulis Curhat ke Pengurus Sekarang
+            Mulai curhat
             <ArrowUpRight size={20} weight="bold" />
           </Link>
           <Link href="/curhat" className="btn-secondary !min-h-[50px] !text-sm">
-            Lihat Semua Curhatmu ({latestCurhats.length ? "Aktif" : "0"})
+            Cek cerita & balasan
           </Link>
         </div>
       </section>

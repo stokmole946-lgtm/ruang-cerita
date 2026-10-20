@@ -121,9 +121,9 @@ export default async function AdminDashboard() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <span className="badge !bg-[#ffdb59] mb-2">{periodLabel()} · X SIJA B</span>
-          <h1 className="page-title">Pusat Kendali Pengurus.</h1>
+          <h1 className="page-title">Yuk, cek kabar kelas.</h1>
           <p className="text-sm text-[#555951]">
-            Kelola curhat harian siswa, beri solusi, dan pantau aspirasi kelas X SIJA B.
+            Ada teman yang butuh didengerin. Cek cerita masuk dan bantu sebisamu.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -138,7 +138,7 @@ export default async function AdminDashboard() {
       </header>
 
       {/* Stats Cards */}
-      <section className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {cards.map((c) => {
           const Icon = c.icon;
           return (
