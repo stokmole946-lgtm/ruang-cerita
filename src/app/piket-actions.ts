@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { getTodayPiketInfo } from "@/lib/piket";
+import { sendPushToRole } from "@/lib/push-notifications";
 
 const clean = (val: FormDataEntryValue | null) => String(val ?? "").trim();
 
@@ -58,6 +59,14 @@ export async function uploadPiketPhotoAction(formData: FormData) {
     INSERT INTO audit_logs (actor_id, action)
     VALUES (${user.id}, 'UPLOAD_PIKET_PHOTO')
   `;
+
+  // Kirim notifikasi realtime ke seluruh pengurus kelas
+  void sendPushToRole('ADMIN', {
+    title: '🧹 Dokumentasi Piket Masuk',
+    body: `${user.fullName} telah mengunggah bukti foto piket hari ${dayName}.`,
+    url: '/piket',
+    tag: 'piket-upload',
+  });
 
   revalidatePath("/piket");
   revalidatePath("/dashboard");

@@ -66,6 +66,24 @@ INSERT INTO app_secrets (name, secret)
 VALUES ('attendance_qr', encode(gen_random_bytes(32), 'hex'))
 ON CONFLICT (name) DO NOTHING;
 
+INSERT INTO app_secrets (name, secret)
+VALUES 
+  ('vapid_public_key', 'BFZyGD132dSUcuHEtsokzC2Za_2212Qi9ggfwW7M20utkqHtpJOeO9SoiSQXIkhz4ArN71ITbqBKZ6M7YRGvy4w'),
+  ('vapid_private_key', 'r8mPZCPYhdilxVJXey9mvRDSNhVR7AOa_YujTmHwRpQ')
+ON CONFLICT (name) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id);
+
 CREATE INDEX IF NOT EXISTS reports_period_idx ON monthly_reports(period);
 CREATE INDEX IF NOT EXISTS reports_status_idx ON monthly_reports(status);
 CREATE INDEX IF NOT EXISTS reports_recipient_idx ON monthly_reports(recipient_id, forwarded_at);

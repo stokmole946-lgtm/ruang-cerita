@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { sendPushToUsers } from '@/lib/push-notifications';
 
 const imageUriSchema = z
   .string()
@@ -301,6 +302,36 @@ export async function POST(request: Request) {
       )
       ON CONFLICT (id) DO NOTHING
     `;
+
+    // Trigger push notification to other chat members asynchronously
+    void (async () => {
+      try {
+        const [conv] = await sql`
+          SELECT kind, title FROM chat_conversations WHERE id = ${data.conversation} LIMIT 1
+        `;
+        const peers = await sql`
+          SELECT user_id FROM chat_members
+          WHERE conversation_id = ${data.conversation} AND user_id != ${user.id}
+        `;
+        const peerIds = peers.map((p) => p.user_id);
+        if (!peerIds.length) return;
+
+        const previewText = data.type === 'photo' ? '📷 [Foto]' : data.body;
+        const pushTitle = conv?.kind === 'group'
+          ? `${user.fullName} (${conv.title || 'Grup Kelas'})`
+          : user.fullName;
+
+        await sendPushToUsers(peerIds, {
+          title: pushTitle,
+          body: previewText.slice(0, 100),
+          url: '/chat',
+          tag: `chat-${data.conversation}`,
+        });
+      } catch (err) {
+        console.error('Error sending chat push notification:', err);
+      }
+    })();
+
     return NextResponse.json({ ok: true });
   }
 

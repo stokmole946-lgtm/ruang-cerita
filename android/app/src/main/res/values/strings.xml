@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ruang Cerita</string>
+    <string name="title_activity_main">Ruang Cerita</string>
+    <string name="package_name">com.ruangcerita.xsijab</string>
+    <string name="custom_url_scheme">com.ruangcerita.xsijab</string>
+</resources>

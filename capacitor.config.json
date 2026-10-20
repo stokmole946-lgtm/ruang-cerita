@@ -1,0 +1,9 @@
+{
+  "appId": "com.ruangcerita.xsijab",
+  "appName": "Ruang Cerita",
+  "webDir": "public",
+  "server": {
+    "url": "https://ruang-cerita-ten.vercel.app",
+    "cleartext": false
+  }
+}

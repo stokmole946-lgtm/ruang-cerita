@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { sendPushToRole, sendPushToUser } from "@/lib/push-notifications";
 
 const clean = (val: FormDataEntryValue | null) => String(val ?? "").trim();
 
@@ -37,6 +38,14 @@ export async function submitCurhatAction(formData: FormData) {
       ${user.id}, ${content}, ${urgent}, ${isAnonymous}, 'NEW'
     )
   `;
+
+  // Kirim notifikasi realtime ke seluruh pengurus
+  void sendPushToRole('ADMIN', {
+    title: `💬 Curhat Siswa Masuk ${urgent ? '(Mendesak!)' : ''}`,
+    body: isAnonymous ? 'Ada curhat baru dari siswa anonim.' : `Ada curhat baru dari ${user.fullName}.`,
+    url: '/pengurus/curhat',
+    tag: 'curhat-new',
+  });
 
   revalidatePath("/curhat");
   revalidatePath("/dashboard");
@@ -75,6 +84,25 @@ export async function replyCurhatAction(formData: FormData) {
       VALUES (${admin.id}, 'REPLY_CURHAT', ${curhatId})
     `;
   });
+
+  // Kirim notifikasi realtime ke siswa pemilik curhat
+  void (async () => {
+    try {
+      const [curhat] = await sql`
+        SELECT student_id FROM student_curhats WHERE id = ${curhatId} LIMIT 1
+      `;
+      if (curhat?.student_id) {
+        await sendPushToUser(curhat.student_id, {
+          title: '💬 Tanggapan Curhat Diterima',
+          body: 'Pengurus kelas telah menanggapi curhatmu. Ketuk untuk membaca solusinya.',
+          url: '/curhat',
+          tag: `curhat-${curhatId}`,
+        });
+      }
+    } catch (err) {
+      console.error('Error sending curhat reply push:', err);
+    }
+  })();
 
   revalidatePath("/curhat");
   revalidatePath("/dashboard");

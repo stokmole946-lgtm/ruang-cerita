@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { createAttendanceToken, verifyAttendanceToken } from "@/lib/attendance-token";
+import { sendPushToRole } from "@/lib/push-notifications";
 
 const scanLimits = new Map<string, { count: number; resetAt: number }>();
 
@@ -165,6 +166,15 @@ export async function POST(request: Request) {
         INSERT INTO audit_logs (actor_id, action, subject_id)
         VALUES (${user.id}, 'START_ATTENDANCE_SESSION', ${session.id})
       `;
+
+      // Kirim notifikasi realtime ke seluruh siswa
+      void sendPushToRole('STUDENT', {
+        title: '📷 Absensi Kelas Dibuka!',
+        body: `Sesi "${session.title}" telah dimulai. Buka QR kamu sekarang!`,
+        url: '/absen',
+        tag: `attendance-${session.id}`,
+      });
+
       return NextResponse.json({ ok: true, session });
     } catch (error) {
       if (String(error).includes("attendance_one_active_session_idx")) {

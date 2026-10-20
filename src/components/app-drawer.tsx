@@ -1,14 +1,18 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  AndroidLogo,
+  Bell,
+  BellRinging,
   Broom,
   CalendarBlank,
   Camera,
   Chats,
   ChatTeardropDots,
+  DownloadSimple,
   EnvelopeSimple,
   GearSix,
   House,
@@ -33,6 +37,17 @@ export interface DrawerUser {
   avatar: string | null;
   whatsapp: string | null;
   bio?: string | null;
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 function compressAvatar(file: File): Promise<string> {
@@ -80,6 +95,102 @@ export function AppDrawer({
   const avatarFormRef = useRef<HTMLFormElement>(null);
   const avatarDataInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
+
+  // Push Notification state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushStatusMsg, setPushStatusMsg] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+      setPushSupported(true);
+
+      // Check current subscription status from backend
+      fetch('/api/push')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.subscribed) {
+            setPushSubscribed(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (!pushSupported) {
+      alert('Browser HP kamu belum mendukung Web Push Notifications.');
+      return;
+    }
+
+    try {
+      setPushLoading(true);
+      setPushStatusMsg('');
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Izin notifikasi ditolak. Mohon aktifkan izin notifikasi di setelan browser HP kamu.');
+        return;
+      }
+
+      const res = await fetch('/api/push');
+      const data = await res.json();
+      if (!res.ok || !data.publicKey) throw new Error(data.error || 'Gagal mengambil kunci notifikasi.');
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+        });
+      }
+
+      const saveRes = await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          subscription: subscription.toJSON(),
+        }),
+      });
+
+      if (!saveRes.ok) throw new Error('Gagal menyimpan notifikasi ke akun.');
+
+      setPushSubscribed(true);
+      setPushStatusMsg('✅ Notifikasi realtime HP aktif!');
+      setTimeout(() => setPushStatusMsg(''), 4000);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Terjadi kendala mengaktifkan notifikasi.');
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    try {
+      setPushLoading(true);
+      const res = await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPushStatusMsg('🔔 Notifikasi tes telah dikirim ke status bar HP kamu!');
+        setTimeout(() => setPushStatusMsg(''), 4000);
+      } else {
+        alert(data.error || 'Gagal mengirim notifikasi tes.');
+      }
+    } catch {
+      alert('Gagal mengirim notifikasi tes.');
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -308,6 +419,62 @@ export function AppDrawer({
                     <Camera size={16} weight="bold" />
                     Pilih / Ganti Foto Profil
                   </button>
+                </div>
+
+                {/* ── CARD NOTIFIKASI HP & APK ── */}
+                <div className="panel p-4 bg-[#fffef9] border-2 border-[#20201e] rounded-[10px] shadow-[2px_2px_0_#20201e] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell size={20} weight="fill" className="text-[#345bdc]" />
+                      <span className="text-xs font-black uppercase text-[#20201e]">Pemberitahuan HP</span>
+                    </div>
+                    <span className={`badge text-[10px] font-black ${pushSubscribed ? '!bg-[#b9e2ce] !text-[#113a27]' : '!bg-[#eeeee5] !text-[#555951]'}`}>
+                      {pushSubscribed ? '● Aktif' : 'Belum Aktif'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#555951]">
+                    Dapatkan pop-up notifikasi langsung saat ada chat baru, sesi absen dibuka, atau curhatmu dibalas.
+                  </p>
+
+                  {pushStatusMsg && (
+                    <p className="text-xs font-bold text-[#113a27] bg-[#b9e2ce] p-2 rounded border border-[#20201e] text-center">
+                      {pushStatusMsg}
+                    </p>
+                  )}
+
+                  <div className="space-y-2 pt-1">
+                    {!pushSubscribed ? (
+                      <button
+                        type="button"
+                        onClick={handleEnablePush}
+                        disabled={pushLoading}
+                        className="btn-primary !min-h-[38px] w-full text-xs font-black flex items-center justify-center gap-2 !bg-[#25d366] !text-white"
+                      >
+                        <BellRinging size={16} weight="bold" />
+                        {pushLoading ? 'Mengaktifkan...' : 'Aktifkan Notifikasi Realtime'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleTestPush}
+                        disabled={pushLoading}
+                        className="btn-secondary !min-h-[36px] w-full text-xs font-black flex items-center justify-center gap-2"
+                      >
+                        <Bell size={16} weight="bold" />
+                        {pushLoading ? 'Mengirim...' : '🔔 Tes Bunyi Notifikasi di HP'}
+                      </button>
+                    )}
+
+                    <a
+                      href="/ruang-cerita.apk"
+                      download="ruang-cerita.apk"
+                      className="btn-secondary !min-h-[38px] w-full text-xs font-black flex items-center justify-center gap-2 !bg-[#ffdb59] !text-[#20201e]"
+                    >
+                      <AndroidLogo size={18} weight="fill" />
+                      <span>Unduh Aplikasi Android (.APK)</span>
+                      <DownloadSimple size={16} weight="bold" />
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
