@@ -10,11 +10,33 @@ import { currentPeriod } from "@/lib/time";
 
 const clean = (value: FormDataEntryValue | null) => String(value ?? "").trim();
 
+function safeInternalRedirect(path: string | null | undefined, fallback: string): string {
+  if (!path) return fallback;
+  const trimmed = path.trim();
+  if (
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    trimmed.includes("\\") ||
+    trimmed.includes("://") ||
+    trimmed.includes("\r") ||
+    trimmed.includes("\n")
+  ) {
+    return fallback;
+  }
+  if (!/^\/[a-zA-Z0-9_\-\/]*(\?[a-zA-Z0-9_=&%\-]*)?$/.test(trimmed)) {
+    return fallback;
+  }
+  return trimmed;
+}
+
 interface LoginAttempt {
   count: number;
   blockedUntil: number;
+  lastAttempt: number;
 }
 const loginAttempts = new Map<string, LoginAttempt>();
+const MAX_LOGIN_MAP_SIZE = 1000;
+const DUMMY_HASH = "$2b$12$e80yqVb8YjFpG9Kx.kYJqu1rA6L7x4Z3yN8P0Q5R9T1U2V3W4X5Y6";
 
 function isLoginBlocked(username: string): boolean {
   const record = loginAttempts.get(username);
@@ -28,10 +50,15 @@ function isLoginBlocked(username: string): boolean {
 }
 
 function registerFailedLogin(username: string) {
-  const record = loginAttempts.get(username) || { count: 0, blockedUntil: 0 };
+  if (loginAttempts.size >= MAX_LOGIN_MAP_SIZE) {
+    const oldestKey = loginAttempts.keys().next().value;
+    if (oldestKey) loginAttempts.delete(oldestKey);
+  }
+  const record = loginAttempts.get(username) || { count: 0, blockedUntil: 0, lastAttempt: Date.now() };
   record.count += 1;
+  record.lastAttempt = Date.now();
   if (record.count >= 5) {
-    record.blockedUntil = Date.now() + 5 * 60 * 1000; // Kunci 5 menit setelah 5x salah
+    record.blockedUntil = Date.now() + 2 * 60 * 1000; // 2 menit lockout
   }
   loginAttempts.set(username, record);
 }
@@ -46,18 +73,20 @@ export async function loginAction(formData: FormData) {
   if (!username || !password) redirect("/login?error=Lengkapi+username+dan+password");
 
   if (isLoginBlocked(username)) {
-    redirect("/login?error=Terlalu+banyak+percobaan+gagal.+Tunggu+5+menit.");
+    redirect("/login?error=Terlalu+banyak+percobaan+gagal.+Tunggu+2+menit.");
   }
 
   const rows = await sql`SELECT * FROM users WHERE lower(username) = ${username} LIMIT 1`;
   const user = rows[0];
 
-  const passwordMatch = user ? await bcrypt.compare(password, user.password_hash) : false;
+  // Constant-time comparison using dummy hash if user doesn't exist
+  const passwordMatch = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
 
   if (!user || !passwordMatch) {
     registerFailedLogin(username);
-    // Artificial delay to prevent automated timing attacks
-    await new Promise((r) => setTimeout(r, 350));
+    const attempt = loginAttempts.get(username);
+    const delay = Math.min((attempt?.count || 1) * 200 + 150, 2000);
+    await new Promise((r) => setTimeout(r, delay));
     redirect("/login?error=Username+atau+password+salah");
   }
 
@@ -81,23 +110,25 @@ export async function logoutAction() {
 export async function changePasswordAction(formData: FormData) {
   const user = await getSession();
   if (!user) redirect("/login");
-  const from = clean(formData.get("from"));
-  const back = from === "ganti-password" ? "/ganti-password" : from || "/profil";
+  const rawFrom = clean(formData.get("from"));
+  const back = safeInternalRedirect(rawFrom === "ganti-password" ? "/ganti-password" : rawFrom, "/profil");
   const password = clean(formData.get("password"));
   const confirmation = clean(formData.get("confirmation"));
   if (password.length < 8) redirect(`${back}?error=Password+minimal+8+karakter`);
+  if (password.length > 128) redirect(`${back}?error=Password+maksimal+128+karakter`);
   if (password === "123") redirect(`${back}?error=Gunakan+password+baru`);
   if (password !== confirmation) redirect(`${back}?error=Konfirmasi+password+tidak+sama`);
   const hash = await bcrypt.hash(password, 12);
   await sql`UPDATE users SET password_hash = ${hash}, must_change_password = FALSE WHERE id = ${user.id}`;
   await createSession({ ...user, mustChangePassword: false });
+  await sql`INSERT INTO audit_logs (actor_id, action, subject_id) VALUES (${user.id}, 'CHANGE_PASSWORD', ${user.id})`;
   redirect(`${back}?success=Password+berhasil+diganti`);
 }
 
 export async function updateContactAction(formData: FormData) {
   const user = await getSession();
   if (!user) redirect("/login");
-  const whatsapp = clean(formData.get("whatsapp")).replace(/[^0-9]/g, "");
+  const whatsapp = clean(formData.get("whatsapp")).replace(/[^0-9]/g, "").slice(0, 20);
   await sql`UPDATE users SET whatsapp = ${whatsapp || null} WHERE id = ${user.id}`;
   revalidatePath("/profil");
   redirect("/profil?success=Kontak+WhatsApp+berhasil+disimpan");
@@ -107,7 +138,8 @@ export async function updateAvatarAction(formData: FormData) {
   const user = await getSession();
   if (!user) redirect("/login");
   const avatar = clean(formData.get("avatar"));
-  const from = clean(formData.get("from")) || "/dashboard";
+  const rawFrom = clean(formData.get("from"));
+  const from = safeInternalRedirect(rawFrom, "/dashboard");
 
   if (avatar) {
     if (avatar.length > 1_500_000 || !/^data:image\/(jpeg|png|webp|gif|jpg);base64,/i.test(avatar)) {
@@ -142,6 +174,18 @@ export async function submitReportAction(formData: FormData) {
   });
   if (!parsed.success) redirect("/cerita-baru?error=Lengkapi+semua+bagian+minimal+3+karakter");
   const { complaint, message, impression, suggestion, recipientId } = parsed.data;
+
+  if (recipientId === user.id) {
+    redirect("/cerita-baru?error=Penerima+pesan+tidak+boleh+diri+sendiri");
+  }
+
+  const [validRecipient] = await sql`
+    SELECT id FROM users WHERE id = ${recipientId} AND role = 'STUDENT' LIMIT 1
+  `;
+  if (!validRecipient) {
+    redirect("/cerita-baru?error=Penerima+pesan+tidak+valid");
+  }
+
   const urgent = formData.get("urgent") === "on";
   const revealSender = formData.get("revealSender") === "on";
   try {
@@ -167,14 +211,17 @@ export async function submitReportAction(formData: FormData) {
 export async function replyReportAction(formData: FormData) {
   const admin = await requireUser("ADMIN");
   const reportId = clean(formData.get("reportId"));
-  const complaintReply = clean(formData.get("complaintReply"));
-  const impressionReply = clean(formData.get("impressionReply"));
-  const suggestionReply = clean(formData.get("suggestionReply"));
-  const messageNote = clean(formData.get("messageNote"));
+  if (!z.string().uuid().safeParse(reportId).success) {
+    redirect("/pengurus?error=ID+laporan+tidak+valid");
+  }
+  const complaintReply = clean(formData.get("complaintReply")).slice(0, 3000);
+  const impressionReply = clean(formData.get("impressionReply")).slice(0, 3000);
+  const suggestionReply = clean(formData.get("suggestionReply")).slice(0, 3000);
+  const messageNote = clean(formData.get("messageNote")).slice(0, 1000);
   const forward = formData.get("forward") === "on";
   const complete = complaintReply && impressionReply && suggestionReply && forward;
   await sql.begin(async (tx) => {
-    await tx`
+    const [updated] = await tx`
       UPDATE monthly_reports SET
         complaint_reply = ${complaintReply || null}, impression_reply = ${impressionReply || null},
         suggestion_reply = ${suggestionReply || null}, message_note = ${messageNote || null},
@@ -182,8 +229,11 @@ export async function replyReportAction(formData: FormData) {
         responded_at = CASE WHEN ${Boolean(complete)} THEN NOW() ELSE responded_at END,
         status = ${complete ? "DONE" : "IN_PROGRESS"}::report_status
       WHERE id = ${reportId}
+      RETURNING id
     `;
-    await tx`INSERT INTO audit_logs (actor_id, action, subject_id) VALUES (${admin.id}, 'RESPOND_REPORT', ${reportId})`;
+    if (updated) {
+      await tx`INSERT INTO audit_logs (actor_id, action, subject_id) VALUES (${admin.id}, 'RESPOND_REPORT', ${reportId})`;
+    }
   });
   revalidatePath("/pengurus");
   redirect(`/pengurus/laporan/${reportId}?success=Tanggapan+berhasil+disimpan`);
@@ -192,7 +242,10 @@ export async function replyReportAction(formData: FormData) {
 export async function updateStudentAction(formData: FormData) {
   const admin = await requireUser("ADMIN");
   const studentId = clean(formData.get("studentId"));
-  const email = clean(formData.get("email"));
+  if (!z.string().uuid().safeParse(studentId).success) {
+    redirect("/pengurus/siswa?error=ID+siswa+tidak+valid");
+  }
+  const email = clean(formData.get("email")).slice(0, 100);
   const reset = formData.get("reset") === "true";
   if (email && !z.string().email().safeParse(email).success) redirect("/pengurus/siswa?error=Format+email+tidak+valid");
   if (reset) {

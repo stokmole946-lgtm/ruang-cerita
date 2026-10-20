@@ -63,6 +63,15 @@ interface MonthlyClassData {
   students: MonthlyStudent[];
 }
 
+interface LastScanInfo {
+  studentName: string;
+  username: string;
+  avatar: string | null;
+  status: AttendanceStatus;
+  scannedAt: string;
+  isDuplicate: boolean;
+}
+
 function currentJakartaMonth() {
   return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date());
 }
@@ -91,6 +100,10 @@ export function AdminAttendance() {
   const [monthly, setMonthly] = useState<MonthlyClassData | null>(null);
   const [monthlySearch, setMonthlySearch] = useState('');
   const [reviewSessionId, setReviewSessionId] = useState('');
+  const [lastScan, setLastScan] = useState<LastScanInfo | null>(null);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [closeConfirmInput, setCloseConfirmInput] = useState('');
+  const [closeError, setCloseError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerControls = useRef<{ stop: () => void } | null>(null);
   const scanning = useRef(false);
@@ -137,9 +150,19 @@ export function AdminAttendance() {
         scanning.current = true;
         try {
           const response = await attendanceApi({ action: 'scan', token: result.getText() });
+          const isDup = Boolean(response.duplicate);
+          const scanInfo: LastScanInfo = {
+            studentName: response.student.full_name,
+            username: response.student.username,
+            avatar: response.student.avatar,
+            status: (response.record?.status || 'PRESENT') as AttendanceStatus,
+            scannedAt: response.record?.scanned_at || new Date().toISOString(),
+            isDuplicate: isDup,
+          };
+          setLastScan(scanInfo);
           setFeedback({
-            kind: response.duplicate ? 'warning' : 'success',
-            text: response.duplicate
+            kind: isDup ? 'warning' : 'success',
+            text: isDup
               ? `${response.student.full_name} sudah tercatat.`
               : `${response.student.full_name} berhasil: ${ATTENDANCE_STATUS[response.record.status as AttendanceStatus]}.`,
           });
@@ -174,18 +197,36 @@ export function AdminAttendance() {
     } finally { setBusy(false); }
   };
 
-  const closeSession = async () => {
-    if (!data?.activeSession || !confirm('Tutup sesi? Siswa tanpa catatan akan diberi status Netral.')) return;
+  const openCloseModal = () => {
+    setCloseConfirmInput('');
+    setCloseError('');
+    setCloseModalOpen(true);
+  };
+
+  const handleConfirmClose = async () => {
+    if (!data?.activeSession) return;
+    if (closeConfirmInput.trim().toUpperCase() !== 'TUTUP SESI') {
+      setCloseError('Ketik "TUTUP SESI" untuk konfirmasi');
+      return;
+    }
     setBusy(true);
+    setCloseError('');
     try {
-      await attendanceApi({ action: 'close', sessionId: data.activeSession.id });
+      await attendanceApi({
+        action: 'close',
+        sessionId: data.activeSession.id,
+        confirmation: 'TUTUP SESI',
+      });
       setReviewSessionId('');
       setScannerOpen(false);
+      setCloseModalOpen(false);
       setFeedback({ kind: 'success', text: 'Sesi ditutup. Siswa yang belum tercatat menjadi Netral.' });
       await refresh();
     } catch (error) {
-      setFeedback({ kind: 'error', text: error instanceof Error ? error.message : 'Gagal menutup sesi.' });
-    } finally { setBusy(false); }
+      setCloseError(error instanceof Error ? error.message : 'Gagal menutup sesi.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const setStatus = async (studentId: string, status: AttendanceStatus) => {
@@ -212,7 +253,7 @@ export function AdminAttendance() {
     <div className="space-y-6 max-w-6xl">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div><span className="badge !bg-[#ffdb59] mb-2">PANEL PENGURUS</span><h1 className="page-title">Absensi Kelas.</h1><p className="text-sm text-[#555951]">Mulai sesi, pindai QR dinamis siswa, lalu tutup sesi. Yang belum tercatat akan tetap Netral.</p></div>
-        {sessionOpen && <button className="btn-danger flex items-center gap-2" onClick={closeSession} disabled={busy}><Stop size={18} weight="fill" /> Tutup Sesi</button>}
+        {sessionOpen && <button className="btn-danger flex items-center gap-2" onClick={openCloseModal} disabled={busy}><Stop size={18} weight="fill" /> Tutup Sesi</button>}
       </header>
 
       {feedback && (
@@ -295,9 +336,149 @@ export function AdminAttendance() {
       {scannerOpen && (
         <div className="fixed inset-0 z-[100] bg-[#20201e]/90 p-4 flex items-center justify-center">
           <div className="w-full max-w-xl bg-[#fffef9] border-2 border-[#20201e] rounded-[14px] shadow-[6px_6px_0_#ffdb59] overflow-hidden">
-            <div className="p-4 flex items-center justify-between border-b-2 border-[#20201e]"><div><h2 className="font-black">Scanner QR Siswa</h2><p className="text-xs text-[#555951]">Arahkan kotak ke QR pada HP siswa.</p></div><button className="xora-icon-btn" onClick={() => setScannerOpen(false)} aria-label="Tutup scanner"><X size={20} weight="bold" /></button></div>
-            <div className="relative bg-black aspect-square sm:aspect-video"><video ref={videoRef} className="size-full object-cover" muted playsInline /><div className="absolute inset-[15%] border-4 border-[#ffdb59] rounded-[16px] shadow-[0_0_0_999px_rgba(0,0,0,.35)]" /></div>
-            <div className="p-3 bg-[#ffdb59] text-center text-xs font-black"><Clock size={15} className="inline mr-1" /> QR diproses di server dan token hanya berlaku 12 detik.</div>
+            <div className="p-4 flex items-center justify-between border-b-2 border-[#20201e]">
+              <div>
+                <h2 className="font-black">Scanner QR Siswa</h2>
+                <p className="text-xs text-[#555951]">Arahkan kotak ke QR pada HP siswa.</p>
+              </div>
+              <button className="xora-icon-btn" onClick={() => setScannerOpen(false)} aria-label="Tutup scanner">
+                <X size={20} weight="bold" />
+              </button>
+            </div>
+            <div className="relative bg-black aspect-square sm:aspect-video">
+              <video ref={videoRef} className="size-full object-cover" muted playsInline />
+              <div className="absolute inset-[15%] border-4 border-[#ffdb59] rounded-[16px] shadow-[0_0_0_999px_rgba(0,0,0,.35)] pointer-events-none" />
+            </div>
+
+            {lastScan ? (
+              <div className={`p-4 border-t-2 border-[#20201e] transition-all ${
+                lastScan.isDuplicate
+                  ? 'bg-[#ffdb59] text-[#20201e]'
+                  : lastScan.status === 'LATE'
+                  ? 'bg-[#ffdb59] text-[#20201e]'
+                  : 'bg-[#b9e2ce] text-[#113a27]'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="size-12 rounded-full border-2 border-[#20201e] bg-white overflow-hidden shrink-0 flex items-center justify-center font-black text-base shadow-[2px_2px_0_#20201e]">
+                    {lastScan.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={lastScan.avatar} alt="" className="size-full object-cover" />
+                    ) : (
+                      <span>{lastScan.studentName[0]}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-black text-base truncate">{lastScan.studentName}</span>
+                      <span className={`badge text-[10px] font-black ${
+                        lastScan.isDuplicate ? '!bg-[#ffa18b] !text-[#481c17]' : '!bg-[#113a27] !text-white'
+                      }`}>
+                        {lastScan.isDuplicate ? 'SUDAH TERCATAT' : 'BERHASIL ABSEN'}
+                      </span>
+                      <span className={`badge text-[10px] font-black ${attendanceStatusClass(lastScan.status)}`}>
+                        {ATTENDANCE_STATUS[lastScan.status]}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold mt-1 opacity-90">
+                      @{lastScan.username} · {new Date(lastScan.scannedAt).toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        timeZone: 'Asia/Jakarta'
+                      })} · {new Date(lastScan.scannedAt).toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZone: 'Asia/Jakarta'
+                      })} WIB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-[#ffdb59] text-center text-xs font-black border-t-2 border-[#20201e]">
+                <Clock size={15} className="inline mr-1" /> Arahkan kamera ke QR siswa. QR dinamis berganti setiap 8 detik.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {closeModalOpen && data?.activeSession && (
+        <div className="fixed inset-0 z-[110] bg-[#20201e]/80 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="w-full max-w-md bg-[#fffef9] border-2 border-[#20201e] rounded-[14px] shadow-[6px_6px_0_#20201e] p-5 space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-[#20201e] pb-3">
+              <div className="flex items-center gap-2">
+                <Warning size={22} weight="fill" className="text-[#d94833]" />
+                <h3 className="font-black text-base text-[#20201e]">Konfirmasi Tutup Sesi</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCloseModalOpen(false)}
+                className="xora-icon-btn !size-7"
+                aria-label="Batal"
+              >
+                <X size={16} weight="bold" />
+              </button>
+            </div>
+
+            <div className="bg-[#ffa18b]/20 border-2 border-[#20201e] rounded-[8px] p-3 text-xs space-y-1.5 font-bold text-[#481c17]">
+              <p>Perhatian sebelum menutup sesi:</p>
+              <ul className="list-disc list-inside space-y-0.5 font-medium">
+                <li>Sesi <strong>&quot;{data.activeSession.title}&quot;</strong> akan dihentikan.</li>
+                <li>QR di HP siswa otomatis tidak berlaku lagi.</li>
+                <li>Siswa yang belum sempat absen akan diberi status <strong>Netral</strong> (bukan Alfa).</li>
+              </ul>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-center text-xs">
+              <div className="border border-[#20201e] rounded-[6px] p-2 bg-[#b9e2ce]">
+                <span className="font-black text-sm block">{present}</span>
+                <span className="text-[10px] font-bold">Hadir/Telat</span>
+              </div>
+              <div className="border border-[#20201e] rounded-[6px] p-2 bg-[#eeeee5]">
+                <span className="font-black text-sm block">{data.students.length - recorded}</span>
+                <span className="text-[10px] font-bold">Akan Netral</span>
+              </div>
+            </div>
+
+            {closeError ? (
+              <div className="p-2.5 bg-[#ffa18b] border border-[#20201e] rounded text-xs font-black text-[#481c17] text-center">
+                {closeError}
+              </div>
+            ) : null}
+
+            <div>
+              <label className="block text-xs font-black mb-1">
+                Ketik <span className="text-[#d94833] underline">TUTUP SESI</span> untuk konfirmasi:
+              </label>
+              <input
+                type="text"
+                value={closeConfirmInput}
+                onChange={(e) => setCloseConfirmInput(e.target.value)}
+                placeholder="TUTUP SESI"
+                className="field w-full text-xs font-black uppercase text-center tracking-wider"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setCloseModalOpen(false)}
+                className="btn-secondary flex-1 !min-h-[40px] text-xs font-black"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={busy || closeConfirmInput.trim().toUpperCase() !== 'TUTUP SESI'}
+                onClick={handleConfirmClose}
+                className="btn-danger flex-1 !min-h-[40px] text-xs font-black disabled:opacity-40"
+              >
+                {busy ? 'Menutup...' : 'Tutup Sesi Sekarang'}
+              </button>
+            </div>
           </div>
         </div>
       )}

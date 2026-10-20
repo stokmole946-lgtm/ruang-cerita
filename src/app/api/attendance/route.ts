@@ -12,7 +12,11 @@ const actionSchema = z.discriminatedUnion("action", [
     title: z.string().trim().min(3).max(120),
     lateMinutes: z.number().int().min(0).max(180),
   }),
-  z.object({ action: z.literal("close"), sessionId: z.string().uuid() }),
+  z.object({
+    action: z.literal("close"),
+    sessionId: z.string().uuid(),
+    confirmation: z.literal("TUTUP SESI"),
+  }),
   z.object({ action: z.literal("scan"), token: z.string().min(100).max(4000) }),
   z.object({
     action: z.literal("status"),
@@ -89,6 +93,9 @@ export async function GET(request: Request) {
   }
 
   const sessionId = new URL(request.url).searchParams.get("session");
+  if (sessionId && !z.string().uuid().safeParse(sessionId).success) {
+    return NextResponse.json({ error: "ID sesi tidak valid." }, { status: 400 });
+  }
   const [activeSession] = sessionId
     ? await sql`
         SELECT id, title, starts_at, late_after, closed_at, created_by

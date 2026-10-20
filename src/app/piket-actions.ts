@@ -69,16 +69,21 @@ export async function deletePiketPhotoAction(formData: FormData) {
   const user = await requireUser();
   const logId = clean(formData.get("logId"));
 
-  if (!logId) {
-    redirect("/piket");
+  if (!logId || !z.string().uuid().safeParse(logId).success) {
+    redirect("/piket?error=ID+dokumentasi+tidak+valid");
   }
 
-  if (user.role === "ADMIN") {
-    await sql`DELETE FROM piket_logs WHERE id = ${logId}`;
-  } else {
-    // Siswa hanya bisa menghapus foto yang ia unggah sendiri
-    await sql`DELETE FROM piket_logs WHERE id = ${logId} AND uploaded_by = ${user.id}`;
-  }
+  await sql.begin(async (tx) => {
+    if (user.role === "ADMIN") {
+      await tx`DELETE FROM piket_logs WHERE id = ${logId}`;
+    } else {
+      await tx`DELETE FROM piket_logs WHERE id = ${logId} AND uploaded_by = ${user.id}`;
+    }
+    await tx`
+      INSERT INTO audit_logs (actor_id, action, subject_id)
+      VALUES (${user.id}, 'DELETE_PIKET_PHOTO', ${logId})
+    `;
+  });
 
   revalidatePath("/piket");
   revalidatePath("/dashboard");

@@ -52,8 +52,11 @@ export async function replyCurhatAction(formData: FormData) {
   const statusInput = clean(formData.get("status"));
   const status = statusInput === "IN_PROGRESS" ? "IN_PROGRESS" : reply ? "DONE" : "NEW";
 
-  if (!curhatId) {
-    redirect("/pengurus/curhat?error=ID+curhat+tidak+ditemukan");
+  if (!curhatId || !z.string().uuid().safeParse(curhatId).success) {
+    redirect("/pengurus/curhat?error=ID+curhat+tidak+valid");
+  }
+  if (reply.length > 5000) {
+    redirect("/pengurus/curhat?error=Tanggapan+maksimal+5000+karakter");
   }
 
   await sql.begin(async (tx) => {
@@ -84,7 +87,7 @@ export async function deleteCurhatAction(formData: FormData) {
   const user = await requireUser();
   const curhatId = clean(formData.get("curhatId"));
 
-  if (!curhatId) {
+  if (!curhatId || !z.string().uuid().safeParse(curhatId).success) {
     redirect(user.role === "ADMIN" ? "/pengurus/curhat" : "/curhat");
   }
 

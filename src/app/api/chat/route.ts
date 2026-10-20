@@ -275,6 +275,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Foto wajib dipilih.' }, { status: 400 });
     }
 
+    if (data.replyId) {
+      const [parent] = await sql`
+        SELECT m.id, u.full_name, m.body, m.type FROM chat_messages m
+        JOIN users u ON u.id = m.sender_id
+        WHERE m.id = ${data.replyId} AND m.conversation_id = ${data.conversation}
+      `;
+      if (!parent) {
+        data.replyId = undefined;
+        data.replyFrom = undefined;
+        data.replyText = undefined;
+      } else {
+        data.replyFrom = parent.full_name;
+        data.replyText = parent.type === 'photo' ? '[Foto]' : (parent.body || '').slice(0, 120);
+      }
+    }
+
     await sql`
       INSERT INTO chat_messages (
         id, conversation_id, sender_id, body, type, media_url, reply_id, reply_from, reply_text
