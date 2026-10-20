@@ -16,6 +16,8 @@ import {
   List,
   Megaphone,
   Notebook,
+  QrCode,
+  Scan,
   SignOut,
   UserCircle,
   WhatsappLogo,
@@ -103,6 +105,7 @@ export function AppDrawer({
     ? [
         { href: '/pengurus', label: 'Beranda Pengurus', icon: House },
         { href: '/chat', label: 'Chat Kelas', icon: Chats },
+        { href: '/pengurus/absen', label: 'Scan Absensi', icon: Scan },
         { href: '/pengurus/curhat', label: 'Kotak Curhat', icon: ChatTeardropDots },
         { href: '/piket', label: 'Piket Kelas', icon: Broom },
         { href: '/pengurus/laporan', label: 'Laporan Bulanan', icon: Notebook },
@@ -113,6 +116,7 @@ export function AppDrawer({
     : [
         { href: '/dashboard', label: 'Beranda', icon: House },
         { href: '/chat', label: 'Chat Kelas', icon: Chats },
+        { href: '/absen', label: 'Absen Saya', icon: QrCode },
         { href: '/curhat', label: 'Curhat Bebas', icon: ChatTeardropDots },
         { href: '/piket', label: 'Piket Kelas', icon: Broom },
         { href: '/riwayat', label: 'Laporan Bulanan', icon: Notebook },

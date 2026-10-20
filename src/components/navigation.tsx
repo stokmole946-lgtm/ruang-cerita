@@ -14,6 +14,8 @@ import {
   ChatTeardropDots,
   Broom,
   Chats,
+  QrCode,
+  Scan,
   List,
   X,
 } from "@phosphor-icons/react";
@@ -42,6 +44,7 @@ export function Navigation({
     ? ([
         ["/pengurus", "Dashboard", House],
         ["/chat", "Chat kelas", Chats],
+        ["/pengurus/absen", "Absensi", Scan],
         ["/pengurus/curhat", "Curhat Siswa", ChatTeardropDots],
         ["/piket", "Piket Kelas", Broom],
         ["/pengurus/laporan", "Laporan Bulanan", Notebook],
@@ -52,6 +55,7 @@ export function Navigation({
     : ([
         ["/dashboard", "Beranda", House],
         ["/chat", "Chat kelas", Chats],
+        ["/absen", "Absensi", QrCode],
         ["/curhat", "Curhat", ChatTeardropDots],
         ["/piket", "Piket Kelas", Broom],
         ["/riwayat", "Laporan", Notebook],
@@ -65,14 +69,14 @@ export function Navigation({
       ? ([
           ["/pengurus", "Beranda", House],
           ["/chat", "Chat", Chats],
+          ["/pengurus/absen", "Absen", Scan],
           ["/pengurus/curhat", "Curhat", ChatTeardropDots],
-          ["/piket", "Piket", Broom],
         ] as const)
       : ([
           ["/dashboard", "Beranda", House],
           ["/chat", "Chat", Chats],
+          ["/absen", "Absen", QrCode],
           ["/curhat", "Curhat", ChatTeardropDots],
-          ["/piket", "Piket", Broom],
         ] as const);
 
     const extra = [

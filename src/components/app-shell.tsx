@@ -48,6 +48,16 @@ export async function AppShell({
     badges["/chat"] = { text: chatUnread.count, color: "success" };
   }
 
+  const [attendanceSession] = await sql`
+    SELECT id FROM attendance_sessions WHERE closed_at IS NULL LIMIT 1
+  `;
+  if (attendanceSession) {
+    badges[admin ? "/pengurus/absen" : "/absen"] = {
+      text: admin ? "Aktif" : "QR",
+      color: "success",
+    };
+  }
+
   if (admin) {
     // Pengurus: notifikasi curhat siswa baru yang belum pernah dilihat pengurus
     const [stats] = await sql`

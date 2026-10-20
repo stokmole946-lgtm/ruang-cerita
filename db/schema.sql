@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS app_secrets (
+  name TEXT PRIMARY KEY,
+  secret TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO app_secrets (name, secret)
+VALUES ('attendance_qr', encode(gen_random_bytes(32), 'hex'))
+ON CONFLICT (name) DO NOTHING;
+
 CREATE INDEX IF NOT EXISTS reports_period_idx ON monthly_reports(period);
 CREATE INDEX IF NOT EXISTS reports_status_idx ON monthly_reports(status);
 CREATE INDEX IF NOT EXISTS reports_recipient_idx ON monthly_reports(recipient_id, forwarded_at);
@@ -124,3 +134,46 @@ CREATE TABLE IF NOT EXISTS piket_logs (
 );
 
 CREATE INDEX IF NOT EXISTS piket_logs_date_idx ON piket_logs(piket_date DESC);
+
+CREATE TABLE IF NOT EXISTS attendance_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL CHECK (char_length(title) BETWEEN 3 AND 120),
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  late_after TIMESTAMPTZ NOT NULL,
+  closed_at TIMESTAMPTZ,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  token_version UUID NOT NULL DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (late_after >= starts_at),
+  CHECK (closed_at IS NULL OR closed_at >= starts_at)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS attendance_one_active_session_idx
+ON attendance_sessions ((TRUE)) WHERE closed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS attendance_sessions_started_idx
+ON attendance_sessions(starts_at DESC);
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('PRESENT', 'LATE', 'EXCUSED', 'SICK', 'ABSENT')),
+  source TEXT NOT NULL CHECK (source IN ('QR', 'MANUAL', 'AUTO_ABSENT')),
+  scanned_at TIMESTAMPTZ,
+  recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  note TEXT CHECK (note IS NULL OR char_length(note) <= 500),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(session_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS attendance_records_student_idx
+ON attendance_records(student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS attendance_records_session_idx
+ON attendance_records(session_id, status, created_at);
+
+DROP TRIGGER IF EXISTS attendance_records_touch_updated_at ON attendance_records;
+CREATE TRIGGER attendance_records_touch_updated_at BEFORE UPDATE ON attendance_records
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
