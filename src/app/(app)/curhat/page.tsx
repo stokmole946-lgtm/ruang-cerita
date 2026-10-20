@@ -23,6 +23,15 @@ export default async function CurhatPage({
   const user = await requireUser("STUDENT");
   const params = await searchParams;
 
+  // Tandai balasan pengurus sebagai sudah dilihat siswa
+  await sql`
+    UPDATE student_curhats
+    SET student_read_at = NOW()
+    WHERE student_id = ${user.id}
+      AND reply IS NOT NULL
+      AND (student_read_at IS NULL OR student_read_at < replied_at)
+  `;
+
   const curhats = await sql`
     SELECT c.*, u.full_name AS replier_name
     FROM student_curhats c

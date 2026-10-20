@@ -26,6 +26,13 @@ export default async function PengurusCurhatPage({
   const params = await searchParams;
   const q = params.q ? `%${params.q.trim().toLowerCase()}%` : null;
 
+  // Tandai semua curhat siswa sebagai sudah dilihat oleh pengurus
+  await sql`
+    UPDATE student_curhats
+    SET admin_read_at = NOW()
+    WHERE admin_read_at IS NULL
+  `;
+
   const [stats] = await sql`
     SELECT
       COUNT(*)::int AS total,

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS monthly_reports (
   suggestion_reply TEXT,
   message_note TEXT,
   forwarded_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
   responded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -99,6 +100,8 @@ CREATE TABLE IF NOT EXISTS student_curhats (
   reply TEXT,
   replied_by UUID REFERENCES users(id) ON DELETE SET NULL,
   replied_at TIMESTAMPTZ,
+  admin_read_at TIMESTAMPTZ,
+  student_read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

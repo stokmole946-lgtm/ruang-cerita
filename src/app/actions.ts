@@ -39,7 +39,7 @@ export async function changePasswordAction(formData: FormData) {
   const user = await getSession();
   if (!user) redirect("/login");
   const from = clean(formData.get("from"));
-  const back = from === "ganti-password" ? "/ganti-password" : "/profil";
+  const back = from === "ganti-password" ? "/ganti-password" : from || "/profil";
   const password = clean(formData.get("password"));
   const confirmation = clean(formData.get("confirmation"));
   if (password.length < 8) redirect(`${back}?error=Password+minimal+8+karakter`);
@@ -58,6 +58,19 @@ export async function updateContactAction(formData: FormData) {
   await sql`UPDATE users SET whatsapp = ${whatsapp || null} WHERE id = ${user.id}`;
   revalidatePath("/profil");
   redirect("/profil?success=Kontak+WhatsApp+berhasil+disimpan");
+}
+
+export async function updateAvatarAction(formData: FormData) {
+  const user = await getSession();
+  if (!user) redirect("/login");
+  const avatar = clean(formData.get("avatar"));
+  const from = clean(formData.get("from")) || "/dashboard";
+  await sql`UPDATE users SET avatar = ${avatar || null} WHERE id = ${user.id}`;
+  revalidatePath("/dashboard");
+  revalidatePath("/profil");
+  revalidatePath("/pengurus");
+  revalidatePath("/chat");
+  redirect(`${from}?success=Foto+profil+berhasil+diperbarui`);
 }
 
 const reportSchema = z.object({

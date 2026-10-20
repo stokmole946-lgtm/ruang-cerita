@@ -80,24 +80,24 @@ export default async function Dashboard({
 
       <Notice {...params} />
 
-      {/* Akses Cepat Chat Kelas (Xora Style) */}
-      <section className="panel p-5 bg-[#070b18] text-[#eaf2ff] border-2 border-[#20201e] shadow-[4px_4px_0_#20201e] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Akses Cepat Chat Kelas (Neo-Brutalism WhatsApp Style) */}
+      <section className="panel p-5 bg-[#fffef9] border-2 border-[#20201e] shadow-[4px_4px_0_#20201e] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="badge !bg-[#34f5c5] !text-[#070b18] text-xs font-black">CHAT KELAS</span>
-            <span className="text-xs text-[#97a9c9] font-medium">Ruang ngobrol teman sekelas</span>
+            <span className="badge !bg-[#25d366] !text-white text-xs font-black">CHAT KELAS</span>
+            <span className="text-xs text-[#555951] font-bold">Ruang obrolan WhatsApp X SIJA B</span>
           </div>
-          <h2 className="text-xl font-black text-[#eaf2ff] flex items-center gap-2">
-            <Chats size={24} className="text-[#34f5c5]" weight="bold" />
+          <h2 className="text-xl font-black text-[#20201e] flex items-center gap-2">
+            <Chats size={24} className="text-[#345bdc]" weight="bold" />
             Ngobrol santai bareng teman sekelas
           </h2>
-          <p className="text-xs text-[#97a9c9]">
-            Pilih teman kelas, kirim pesan, dan ngobrol langsung di sini.
+          <p className="text-xs text-[#555951] font-medium">
+            Grup kelas, chat personal, kirim foto, dan bagikan status 24 jam.
           </p>
         </div>
         <Link
           href="/chat"
-          className="btn-primary !bg-[#34f5c5] !text-[#070b18] hover:!bg-[#5eead4] !min-h-[46px] text-sm font-black shrink-0 flex items-center gap-2"
+          className="btn-primary !bg-[#ffdb59] !text-[#20201e] hover:!bg-[#fde047] !min-h-[46px] text-sm font-black shrink-0 flex items-center gap-2"
         >
           <Chats size={20} weight="bold" />
           Buka Chat Kelas

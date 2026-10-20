@@ -11,7 +11,7 @@ export default async function ProfilePage({
   const user = await requireUser("STUDENT");
   const params = await searchParams;
 
-  const [dbUser] = await sql`SELECT whatsapp FROM users WHERE id = ${user.id}`;
+  const [dbUser] = await sql`SELECT whatsapp, avatar FROM users WHERE id = ${user.id}`;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -25,9 +25,14 @@ export default async function ProfilePage({
       <section className="panel p-6 sm:p-8 space-y-6">
         <div className="border-b-2 border-[#20201e] pb-6 space-y-4">
           <div className="flex items-center gap-4">
-            <span className="grid size-16 place-items-center bg-[#ffdb59] border-2 border-[#20201e] rounded-[10px] text-2xl font-black shadow-[3px_3px_0_#20201e]">
-              {user.fullName.slice(0, 1)}
-            </span>
+            <div className="size-16 rounded-[10px] bg-[#ffdb59] border-2 border-[#20201e] shadow-[3px_3px_0_#20201e] overflow-hidden flex items-center justify-center font-black text-2xl shrink-0">
+              {dbUser?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={dbUser.avatar} alt={user.fullName} className="size-full object-cover" />
+              ) : (
+                <span>{user.fullName.slice(0, 1)}</span>
+              )}
+            </div>
             <div>
               <h2 className="text-2xl font-extrabold">{user.fullName}</h2>
               <p className="text-sm text-[#555951]">Siswa · X SIJA B</p>

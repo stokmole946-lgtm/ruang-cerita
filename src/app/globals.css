@@ -1,76 +1,81 @@
 @import "tailwindcss";
 
-/* ── XORA CHAT & SOCIAL ENGINE (AUTHENTIC AURORA / DEEP-SPACE THEME) ── */
-.xora-shell { display:grid; grid-template-columns:360px minmax(0,1fr); height:calc(100dvh - 84px); background:#070b18; color:#eaf2ff; border:2px solid var(--ink); border-radius:16px; overflow:hidden; box-shadow:4px 4px 0 var(--ink); }
-.xora-sidebar { display:flex; flex-direction:column; background:#0b1324; border-right:1px solid #23304c; min-height:0; min-width:0; }
-.xora-topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#0b1324; border-bottom:1px solid #23304c; }
-.xora-icon-btn { display:grid; place-items:center; width:38px; height:38px; border-radius:50%; color:#97a9c9; background:transparent; border:0; transition:all .15s; }
-.xora-icon-btn:hover { background:#18223a; color:#eaf2ff; }
-.xora-tabs { display:grid; grid-template-columns:repeat(3,1fr); background:#070b18; border-bottom:1px solid #23304c; padding:4px; gap:4px; }
-.xora-tab-btn { padding:10px 6px; border-radius:8px; font-size:12.5px; font-weight:750; color:#97a9c9; text-align:center; transition:all .15s; border:0; background:transparent; }
-.xora-tab-btn.active { background:#111a2e; color:#34f5c5; box-shadow:0 0 12px rgba(52,245,197,0.1); }
-.xora-tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; padding:0 4px; border-radius:20px; background:#34f5c5; color:#070b18; font-size:10px; font-weight:900; line-height:1; }
-.xora-tab-dot { width:7px; height:7px; border-radius:50%; background:#34f5c5; }
+/* ── WHATSAPP + NEO-BRUTALISM CHAT & SOCIAL ENGINE ── */
+.xora-shell { display:grid; grid-template-columns:360px minmax(0,1fr); height:calc(100dvh - 84px); background:#f5f2e9; color:#20201e; border:2px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 var(--ink); }
+.xora-sidebar { display:flex; flex-direction:column; background:#fffef9; border-right:2px solid #20201e; min-height:0; min-width:0; }
+.xora-topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#ffdb59; border-bottom:2px solid #20201e; color:#20201e; }
+.xora-icon-btn { display:grid; place-items:center; width:36px; height:36px; border-radius:6px; color:#20201e; background:#fffef9; border:2px solid #20201e; box-shadow:2px 2px 0 #20201e; transition:transform .12s; }
+.xora-icon-btn:hover { background:#eeeee5; transform:scale(1.04); }
+.xora-tabs { display:grid; grid-template-columns:repeat(3,1fr); background:#eeeee5; border-bottom:2px solid #20201e; padding:5px; gap:4px; }
+.xora-tab-btn { padding:8px 6px; border-radius:6px; font-size:12px; font-weight:800; color:#555951; text-align:center; transition:all .15s; border:2px solid transparent; background:transparent; }
+.xora-tab-btn.active { background:#ffdb59; color:#20201e; border-color:#20201e; box-shadow:2px 2px 0 #20201e; }
+.xora-tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 4px; border-radius:10px; background:#20201e; color:#ffffff; font-size:10px; font-weight:900; line-height:1; }
+.xora-tab-dot { width:7px; height:7px; border-radius:50%; background:#25d366; border:1px solid #20201e; }
 .xora-scrollable { flex:1; overflow-y:auto; min-height:0; }
-.xora-search-input { width:100%; padding:10px 16px; border-radius:20px; background:#16203a; border:1px solid #23304c; color:#eaf2ff; font-size:13px; outline:none; }
-.xora-search-input:focus { border-color:#34f5c5; }
-.xora-section-label { padding:10px 16px 4px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#66789b; }
-.xora-chat-item { display:flex; align-items:center; gap:12px; width:100%; padding:10px 14px; border:0; background:transparent; text-align:left; transition:background .15s; border-radius:8px; cursor:pointer; }
-.xora-chat-item:hover { background:#111a2e; }
-.xora-chat-item.active { background:#16203a; }
-.xora-avatar-circle { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#123c52; color:#34f5c5; font-weight:800; font-size:16px; flex-shrink:0; }
-.xora-unread-pill { display:grid; place-items:center; min-width:20px; height:20px; padding:0 5px; border-radius:20px; background:#34f5c5; color:#070b18; font-size:11px; font-weight:900; flex-shrink:0; }
-.xora-status-card { display:flex; align-items:center; gap:12px; padding:12px 14px; background:#111a2e; border:1px solid #23304c; border-radius:12px; }
-.xora-add-story-badge { position:absolute; bottom:-2px; right:-2px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#34f5c5; color:#070b18; border:2px solid #070b18; }
-.xora-field { width:100%; padding:10px 14px; border-radius:8px; background:#16203a; border:1px solid #23304c; color:#eaf2ff; font-size:14px; outline:none; }
-.xora-field:focus { border-color:#34f5c5; }
-.xora-room { display:flex; flex-direction:column; background:#070b18; min-height:0; min-width:0; position:relative; }
-.xora-room-header { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:#0b1324; border-bottom:1px solid #23304c; }
-.xora-messages-container { flex:1; overflow-y:auto; padding:18px; min-height:0; display:flex; flex-direction:column; gap:4px; }
-.xora-date-divider { display:flex; justify-content:center; margin:16px 0; }
-.xora-date-divider span { background:#111a2e; border:1px solid #23304c; color:#97a9c9; font-size:11px; font-weight:700; padding:4px 12px; border-radius:12px; }
+.xora-search-input { width:100%; padding:9px 14px; border-radius:8px; background:#ffffff; border:2px solid #20201e; color:#20201e; font-size:13px; font-weight:600; outline:none; box-shadow:2px 2px 0 #20201e; }
+.xora-search-input:focus { border-color:#345bdc; }
+.xora-section-label { padding:10px 16px 4px; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em; color:#555951; }
+.xora-chat-item { display:flex; align-items:center; gap:12px; width:100%; padding:11px 14px; border:0; border-bottom:1px solid #eeeee5; background:transparent; text-align:left; transition:background .12s; cursor:pointer; }
+.xora-chat-item:hover { background:#eeeee5; }
+.xora-chat-item.active { background:#ffdb59; border-top:2px solid #20201e; border-bottom:2px solid #20201e; }
+.xora-avatar-circle { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#ffdb59; color:#20201e; border:2px solid #20201e; font-weight:900; font-size:16px; flex-shrink:0; box-shadow:2px 2px 0 #20201e; overflow:hidden; }
+.xora-unread-pill { display:grid; place-items:center; min-width:20px; height:20px; padding:0 5px; border-radius:12px; background:#25d366; color:#ffffff; border:1.5px solid #20201e; font-size:11px; font-weight:900; flex-shrink:0; }
+.xora-status-card { display:flex; align-items:center; gap:12px; padding:12px 14px; background:#fffef9; border:2px solid #20201e; border-radius:10px; box-shadow:2px 2px 0 #20201e; }
+.xora-add-story-badge { position:absolute; bottom:-2px; right:-2px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#25d366; color:#ffffff; border:2px solid #20201e; }
+.xora-field { width:100%; padding:10px 14px; border-radius:8px; background:#ffffff; border:2px solid #20201e; color:#20201e; font-size:14px; outline:none; box-shadow:2px 2px 0 #20201e; font-weight:600; }
+.xora-field:focus { border-color:#345bdc; }
+.xora-room { display:flex; flex-direction:column; background:#efeae2; min-height:0; min-width:0; position:relative; }
+.xora-room-header { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:#fffef9; border-bottom:2px solid #20201e; box-shadow:0 2px 0 #20201e; z-index:5; }
+.xora-messages-container { flex:1; overflow-y:auto; padding:16px; min-height:0; display:flex; flex-direction:column; gap:5px; background:#efeae2; background-image:radial-gradient(#20201e 0.5px, transparent 0.5px); background-size:18px 18px; }
+.xora-date-divider { display:flex; justify-content:center; margin:14px 0; }
+.xora-date-divider span { background:#fffef9; border:2px solid #20201e; color:#20201e; font-size:11px; font-weight:800; padding:4px 12px; border-radius:12px; box-shadow:2px 2px 0 #20201e; }
 .xora-bubble-row { display:flex; width:100%; margin:2px 0; }
 .xora-bubble-row.mine { justify-content:flex-end; }
 .xora-bubble-row.theirs { justify-content:flex-start; }
-.xora-bubble { max-width:82%; padding:8px 12px 6px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
-.xora-bubble.mine { background:#123c52; color:#eaf2ff; border-bottom-right-radius:3px; }
-.xora-bubble.theirs { background:#18223a; color:#eaf2ff; border-bottom-left-radius:3px; border:1px solid #23304c; }
-.xora-bubble-footer { display:flex; align-items:center; justify-content:flex-end; gap:3px; margin-top:2px; }
-.xora-composer { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#0b1324; border-top:1px solid #23304c; }
-.xora-composer-input { flex:1; min-width:0; padding:11px 16px; border-radius:24px; background:#16203a; border:1px solid #23304c; color:#eaf2ff; font-size:15px; outline:none; resize:none; }
-.xora-composer-input:focus { border-color:#34f5c5; }
-.xora-send-btn { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#34f5c5; color:#070b18; border:0; transition:transform .15s; flex-shrink:0; cursor:pointer; }
+.xora-bubble { max-width:82%; padding:8px 12px 6px; border:2px solid #20201e; box-shadow:2px 2px 0 #20201e; }
+.xora-bubble.mine { background:#dcf8c6; color:#20201e; border-radius:12px 12px 2px 12px; }
+.xora-bubble.theirs { background:#ffffff; color:#20201e; border-radius:12px 12px 12px 2px; }
+.xora-bubble-footer { display:flex; align-items:center; justify-content:flex-end; gap:3px; margin-top:3px; }
+.xora-composer { display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fffef9; border-top:2px solid #20201e; }
+.xora-composer-input { flex:1; min-width:0; padding:10px 16px; border-radius:24px; background:#ffffff; border:2px solid #20201e; color:#20201e; font-size:14px; font-weight:600; outline:none; resize:none; box-shadow:2px 2px 0 #20201e; }
+.xora-composer-input:focus { border-color:#345bdc; }
+.xora-send-btn { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#ffdb59; color:#20201e; border:2px solid #20201e; box-shadow:2px 2px 0 #20201e; transition:transform .12s; flex-shrink:0; cursor:pointer; }
 .xora-send-btn:disabled { opacity:.4; cursor:not-allowed; }
 .xora-send-btn:active { transform:scale(.95); }
-.xora-empty-room { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:32px; text-align:center; }
-.xora-modal-overlay { position:fixed; inset:0; z-index:60; background:rgba(7,11,24,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px; }
-.xora-story-dialog { width:100%; max-width:440px; background:#0b1324; border:1px solid #23304c; border-radius:16px; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,0.5); }
-.xora-story-viewer-overlay { position:fixed; inset:0; z-index:70; background:#070b18; display:flex; flex-direction:column; overflow:hidden; user-select:none; }
+.xora-empty-room { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:32px; text-align:center; background:#efeae2; }
+.xora-modal-overlay { position:fixed; inset:0; z-index:75; background:rgba(32,32,30,0.65); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:16px; }
+.xora-story-dialog { width:100%; max-width:440px; background:#fffef9; border:2px solid #20201e; border-radius:12px; padding:18px; box-shadow:5px 5px 0 #20201e; }
+.xora-story-viewer-overlay { position:fixed; inset:0; z-index:85; background:#070b18; display:flex; flex-direction:column; overflow:hidden; user-select:none; }
 .xora-story-progress-bar { position:absolute; top:12px; left:12px; right:12px; z-index:2; display:flex; gap:4px; }
 .xora-progress-track { flex:1; height:3px; background:rgba(255,255,255,0.25); border-radius:2px; overflow:hidden; }
-.xora-progress-fill { height:100%; background:#34f5c5; transition:width 0.05s linear; }
+.xora-progress-fill { height:100%; background:#ffdb59; transition:width 0.05s linear; }
 .xora-story-top-row { position:absolute; top:24px; left:16px; right:16px; z-index:3; display:flex; align-items:center; justify-content:space-between; }
 .xora-story-body { flex:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
 .xora-story-tap-left { position:absolute; top:60px; bottom:0; left:0; width:35%; z-index:2; cursor:pointer; }
 .xora-story-tap-right { position:absolute; top:60px; bottom:0; right:0; width:65%; z-index:2; cursor:pointer; }
-.xora-sender-name { font-size:11px; font-weight:800; color:#7dd3fc; margin-bottom:3px; }
-.xora-reply-quote { border-left:3px solid #34f5c5; background:rgba(7,11,24,0.45); border-radius:6px; padding:5px 9px; margin-bottom:6px; display:flex; flex-direction:column; min-width:0; }
-.xora-reply-from { font-size:11px; font-weight:800; color:#34f5c5; }
-.xora-reply-text { font-size:11px; color:#97a9c9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
+.xora-sender-name { font-size:11px; font-weight:900; color:#0284c7; margin-bottom:3px; }
+.xora-reply-quote { border-left:3px solid #075e54; background:rgba(0,0,0,0.05); border-radius:6px; padding:5px 9px; margin-bottom:6px; display:flex; flex-direction:column; min-width:0; }
+.xora-reply-from { font-size:11px; font-weight:900; color:#075e54; }
+.xora-reply-text { font-size:11px; color:#555951; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
 .xora-photo-msg { margin-bottom:4px; }
 .xora-bubble.photo-bubble { padding:6px 6px 4px; }
-.xora-msg-menu-btn { display:grid; place-items:center; width:24px; height:24px; border-radius:50%; border:0; background:transparent; color:#66789b; opacity:0; transition:opacity .15s; cursor:pointer; }
+.xora-msg-menu-btn { display:grid; place-items:center; width:24px; height:24px; border-radius:50%; border:0; background:transparent; color:#555951; opacity:0; transition:opacity .15s; cursor:pointer; }
 .xora-bubble:hover .xora-msg-menu-btn { opacity:1; }
-@media(hover:none) { .xora-msg-menu-btn { opacity:.55; } }
-.xora-msg-menu { position:absolute; bottom:calc(100% + 4px); right:0; z-index:10; background:#111a2e; border:1px solid #23304c; border-radius:10px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.45); min-width:130px; }
-.xora-msg-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:9px 12px; border:0; background:transparent; color:#eaf2ff; font-size:12px; font-weight:700; text-align:left; cursor:pointer; transition:background .12s; }
-.xora-msg-menu-item:hover { background:#16203a; }
-.xora-msg-menu-item.danger { color:#fb7185; }
-.xora-composer-preview { padding:8px 16px 0; background:#0b1324; }
-.xora-reply-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#111a2e; border-left:3px solid #34f5c5; border-radius:8px; margin-bottom:8px; }
-.xora-photo-preview-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#111a2e; border-radius:8px; margin-bottom:8px; }
-.xora-attach-btn { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:transparent; border:1px solid #23304c; color:#97a9c9; flex-shrink:0; cursor:pointer; transition:all .15s; }
-.xora-attach-btn:hover { background:#16203a; color:#34f5c5; border-color:#34f5c5; }
+@media(hover:none) { .xora-msg-menu-btn { opacity:.75; } }
+.xora-msg-menu { position:absolute; bottom:calc(100% + 4px); right:0; z-index:10; background:#fffef9; border:2px solid #20201e; border-radius:8px; overflow:hidden; box-shadow:3px 3px 0 #20201e; min-width:130px; }
+.xora-msg-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:9px 12px; border:0; background:transparent; color:#20201e; font-size:12px; font-weight:800; text-align:left; cursor:pointer; transition:background .12s; }
+.xora-msg-menu-item:hover { background:#eeeee5; }
+.xora-msg-menu-item.danger { color:#d94833; }
+.xora-composer-preview { padding:8px 16px 0; background:#fffef9; border-top:2px solid #20201e; }
+.xora-reply-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#eeeee5; border-left:3px solid #345bdc; border-radius:6px; margin-bottom:6px; }
+.xora-photo-preview-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#eeeee5; border-radius:6px; margin-bottom:6px; }
+.xora-attach-btn { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:#fffef9; border:2px solid #20201e; color:#20201e; box-shadow:2px 2px 0 #20201e; flex-shrink:0; cursor:pointer; transition:all .15s; }
+.xora-attach-btn:hover { background:#ffdb59; }
+.app-drawer-trigger { display:flex; align-items:center; gap:8px; background:transparent; border:0; padding:0; cursor:pointer; }
+@keyframes drawerFadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes drawerSlideIn { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+.drawer-overlay { animation: drawerFadeIn .18s ease-out; }
+.drawer-panel { animation: drawerSlideIn .22s cubic-bezier(0.16, 1, 0.3, 1); }
 @media(max-width:767px) {
   .xora-shell { position:fixed; inset:0; z-index:50; border:0; border-radius:0; height:100dvh; grid-template-columns:1fr; }
   .xora-shell .xora-room { display:none; }

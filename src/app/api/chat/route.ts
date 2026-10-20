@@ -43,6 +43,7 @@ const input = z.discriminatedUnion('action', [
     fullName: z.string().trim().min(2).max(100),
     bio: z.string().trim().max(300).optional().default(''),
     whatsapp: z.string().trim().max(30).optional().default(''),
+    avatar: z.string().optional(),
   }),
 ]);
 
@@ -327,7 +328,8 @@ export async function POST(request: Request) {
       UPDATE users
       SET full_name = ${data.fullName},
           bio = ${data.bio || 'Ada di Ruang Cerita X SIJA B.'},
-          whatsapp = ${data.whatsapp || null}
+          whatsapp = ${data.whatsapp || null},
+          avatar = CASE WHEN ${data.avatar !== undefined} THEN ${data.avatar || null} ELSE avatar END
       WHERE id = ${user.id}
     `;
     return NextResponse.json({ ok: true });
