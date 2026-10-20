@@ -232,6 +232,9 @@ export function ChatClient() {
 
   useEffect(() => {
     loadDashboard();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('badge:clear', { detail: '/chat' }));
+    }
   }, []);
 
   // Polling for Active Chat
@@ -246,6 +249,12 @@ export function ChatClient() {
         if (!cancelled) {
           setMessages(data.messages || []);
           await chatApi({ action: 'read', conversation: activeChat.id });
+          setConversations((prev) =>
+            prev.map((item) => (item.id === activeChat.id ? { ...item, unread_count: 0 } : item))
+          );
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('badge:clear', { detail: '/chat' }));
+          }
         }
       } catch {
         // silent
@@ -334,6 +343,10 @@ export function ChatClient() {
       setConversations((prev) =>
         prev.map((c) => (c.id === data.id ? { ...c, unread_count: 0 } : c))
       );
+      void chatApi({ action: 'read', conversation: data.id });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('badge:clear', { detail: '/chat' }));
+      }
     } catch (err: unknown) {
       if (err instanceof Error) setErrorMsg(err.message);
     }
@@ -349,6 +362,10 @@ export function ChatClient() {
     setConversations((prev) =>
       prev.map((item) => (item.id === c.id ? { ...item, unread_count: 0 } : item))
     );
+    void chatApi({ action: 'read', conversation: c.id });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('badge:clear', { detail: '/chat' }));
+    }
   };
 
   // Send Message (with focus retention for keyboard)
