@@ -42,16 +42,21 @@ const students = [
   ["Zhian Alfarizi Muzaffar", "zhian"],
 ];
 
+const studentAdmins = new Set(["daffa", "syakila", "mfauzi"]);
+
 try {
   await sql.unsafe(schema);
   const passwordHash = await bcrypt.hash("123", 12);
 
   await sql.begin(async (tx) => {
     for (const [fullName, username] of students) {
+      const role = studentAdmins.has(username) ? "ADMIN" : "STUDENT";
       await tx`
         INSERT INTO users (full_name, username, password_hash, role)
-        VALUES (${fullName}, ${username}, ${passwordHash}, 'STUDENT')
-        ON CONFLICT (username) DO UPDATE SET full_name = EXCLUDED.full_name
+        VALUES (${fullName}, ${username}, ${passwordHash}, ${role}::user_role)
+        ON CONFLICT (username) DO UPDATE SET
+          full_name = EXCLUDED.full_name,
+          role = EXCLUDED.role
       `;
     }
     await tx`
