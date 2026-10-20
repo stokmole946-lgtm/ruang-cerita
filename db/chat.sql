@@ -28,4 +28,23 @@ CREATE INDEX IF NOT EXISTS chat_messages_timeline_idx ON chat_messages(conversat
 ALTER TABLE chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT 'Ada di Ruang Cerita X SIJA B.';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
+
+CREATE TABLE IF NOT EXISTS chat_stories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('text', 'photo')),
+  content TEXT,
+  media_url TEXT,
+  bg_color TEXT NOT NULL DEFAULT '#10B981',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours')
+);
+
+CREATE INDEX IF NOT EXISTS chat_stories_expires_idx ON chat_stories(expires_at DESC);
+CREATE INDEX IF NOT EXISTS chat_stories_user_idx ON chat_stories(user_id, created_at DESC);
+
+ALTER TABLE chat_stories ENABLE ROW LEVEL SECURITY;
 COMMIT;

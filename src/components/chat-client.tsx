@@ -1,226 +1,1112 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, PaperPlaneRight, Check, Checks, Chats } from '@phosphor-icons/react';
+import {
+  ArrowLeft,
+  Camera,
+  Chats,
+  Check,
+  Checks,
+  CircleDashed,
+  FloppyDisk,
+  Image as ImageIcon,
+  PaperPlaneRight,
+  Plus,
+  TextT,
+  Trash,
+  UserCircle,
+  X,
+} from '@phosphor-icons/react';
 
-type Conversation = { id: string; title: string; preview: string | null };
-type Message = { id: string; sender_id: string; body: string; created_at: string; read: boolean };
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  username: string;
+  role: string;
+  bio: string;
+  avatar: string | null;
+  whatsapp: string | null;
+}
 
-async function api(body?: object, id?: string) {
-  const response = await fetch(`/api/chat${id ? `?conversation=${id}` : ''}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Koneksi bermasalah. Coba lagi.');
-  return result;
+export interface Conversation {
+  id: string;
+  title: string;
+  partner_username: string;
+  partner_avatar: string | null;
+  preview: string | null;
+  last_message_at: string | null;
+  unread_count: number;
+}
+
+export interface Contact {
+  id: string;
+  full_name: string;
+  username: string;
+  bio: string;
+  avatar: string | null;
+}
+
+export interface Message {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface Story {
+  id: string;
+  user_id: string;
+  type: 'text' | 'photo';
+  content: string;
+  media_url: string | null;
+  bg_color: string;
+  created_at: string;
+  expires_at: string;
+  full_name: string;
+  username: string;
+  avatar: string | null;
+}
+
+export interface StoryGroup {
+  userId: string;
+  fullName: string;
+  username: string;
+  avatar: string | null;
+  latestCreatedAt: string;
+  items: Story[];
+}
+
+const COLOR_PRESETS = [
+  '#10B981', // Emerald
+  '#005C4B', // Dark Teal
+  '#0284C7', // Sky Blue
+  '#8B5CF6', // Purple
+  '#D97706', // Amber
+  '#111827', // Dark Slate
+];
+
+async function chatApi(body?: object, id?: string) {
+  const res = await fetch(`/api/chat${id ? `?conversation=${id}` : ''}`, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Terjadi kendala. Coba lagi.');
+  return data;
 }
 
 export function ChatClient() {
-  const [chats, setChats] = useState<Conversation[]>([]);
-  const [contacts, setContacts] = useState<{id:string;full_name:string}[]>([]);
-  const [user, setUser] = useState('');
-  const [active, setActive] = useState<Conversation | null>(null);
+  const [tab, setTab] = useState<'chats' | 'stories' | 'profile'>('chats');
+  const [userId, setUserId] = useState('');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [myStories, setMyStories] = useState<Story[]>([]);
+  const [otherGroups, setOtherGroups] = useState<StoryGroup[]>([]);
+
+  // Chat Room State
+  const [activeChat, setActiveChat] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState('');
-  const [error, setError] = useState('');
-  const [sending, setSending] = useState(false);
-  const [search, setSearch] = useState('');
+  const [chatInput, setChatInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Story Creator State
+  const [showStoryCreator, setShowStoryCreator] = useState(false);
+  const [storyType, setStoryType] = useState<'text' | 'photo'>('text');
+  const [storyText, setStoryText] = useState('');
+  const [storyColor, setStoryColor] = useState(COLOR_PRESETS[0]);
+  const [storyPhoto, setStoryPhoto] = useState<string | null>(null);
+  const [storySubmitting, setStorySubmitting] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Story Viewer State
+  const [activeStoryGroup, setActiveStoryGroup] = useState<Story[] | null>(null);
+  const [storyIndex, setStoryIndex] = useState(0);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const [storyPaused, setStoryPaused] = useState(false);
+
+  // Profile Edit State
+  const [profileName, setProfileName] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [profileWa, setProfileWa] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Load Main Data
+  const loadDashboard = async () => {
+    try {
+      const data = await chatApi();
+      setUserId(data.userId);
+      setProfile(data.profile);
+      setProfileName(data.profile.full_name || '');
+      setProfileBio(data.profile.bio || '');
+      setProfileWa(data.profile.whatsapp || '');
+      setConversations(data.conversations || []);
+      setContacts(data.contacts || []);
+      setMyStories(data.myStories || []);
+      setOtherGroups(data.otherGroups || []);
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMsg(err.message);
+    }
   };
 
   useEffect(() => {
-    api().then(data => {
-      setChats(data.conversations);
-      setContacts(data.contacts);
-      setUser(data.userId);
-    }).catch(e => setError(e.message));
+    loadDashboard();
   }, []);
 
+  // Polling for Active Chat
   useEffect(() => {
-    if (!active) return;
+    if (!activeChat) return;
     let cancelled = false;
-    const refresh = async () => {
+
+    const refreshMessages = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
-        const data = await api(undefined, active.id);
+        const data = await chatApi(undefined, activeChat.id);
         if (!cancelled) {
-          setMessages(data.messages);
-          await api({ action: 'read', conversation: active.id });
+          setMessages(data.messages || []);
+          await chatApi({ action: 'read', conversation: activeChat.id });
         }
-      } catch(e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Gagal memuat chat.');
+      } catch {
+        // silent polling error
       }
     };
-    void refresh();
-    const timer = setInterval(refresh, 3000);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, [active]);
 
+    void refreshMessages();
+    const interval = setInterval(refreshMessages, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeChat]);
+
+  // Scroll to bottom on new message
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function openContact(id: string, title: string) {
-    try {
-      const data = await api({ action: 'start', recipient: id });
-      setMessages([]);
-      setText('');
-      setActive({ id: data.id, title, preview: null });
-    } catch(e) {
-      setError(e instanceof Error ? e.message : 'Gagal membuka chat.');
-    }
-  }
+  // Story Viewer Progress Timer
+  useEffect(() => {
+    if (!activeStoryGroup || activeStoryGroup.length === 0) return;
+    setStoryProgress(0);
 
-  async function send(event?: React.FormEvent) {
-    if (event) event.preventDefault();
-    if (!active || !text.trim() || sending) return;
-    const bodyToSend = text.trim();
+    const DURATION = 5000; // 5s per story
+    const INTERVAL = 50;
+    const step = (INTERVAL / DURATION) * 100;
+
+    const timer = setInterval(() => {
+      if (storyPaused) return;
+      setStoryProgress((prev) => {
+        if (prev + step >= 100) {
+          // Next story or close
+          if (storyIndex < activeStoryGroup.length - 1) {
+            setStoryIndex((i) => i + 1);
+            return 0;
+          } else {
+            setActiveStoryGroup(null);
+            setStoryIndex(0);
+            return 0;
+          }
+        }
+        return prev + step;
+      });
+    }, INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [activeStoryGroup, storyIndex, storyPaused]);
+
+  // Start or Open Conversation
+  const openContact = async (contactId: string, title: string, partnerUsername: string) => {
+    try {
+      const data = await chatApi({ action: 'start', recipient: contactId });
+      setMessages([]);
+      setChatInput('');
+      setActiveChat({
+        id: data.id,
+        title,
+        partner_username: partnerUsername,
+        partner_avatar: null,
+        preview: null,
+        last_message_at: null,
+        unread_count: 0,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMsg(err.message);
+    }
+  };
+
+  // Send Message
+  const sendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!activeChat || !chatInput.trim() || isSending) return;
+
+    const bodyToSend = chatInput.trim();
     const tempId = crypto.randomUUID();
     const optimisticMessage: Message = {
       id: tempId,
-      sender_id: user,
+      sender_id: userId,
       body: bodyToSend,
       created_at: new Date().toISOString(),
       read: false,
     };
-    setMessages(prev => [...prev, optimisticMessage]);
-    setText('');
-    setSending(true);
-    setError('');
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setChatInput('');
+    setIsSending(true);
+
     try {
-      await api({ action: 'send', conversation: active.id, id: tempId, body: bodyToSend });
-      const data = await api(undefined, active.id);
-      setMessages(data.messages);
-      // Update preview in chats list
-      setChats(prev => prev.map(c => c.id === active.id ? { ...c, preview: bodyToSend } : c));
-    } catch(e) {
-      setError(e instanceof Error ? e.message : 'Gagal kirim. Pesanmu masih di sini.');
-      setText(bodyToSend);
+      await chatApi({
+        action: 'send',
+        conversation: activeChat.id,
+        id: tempId,
+        body: bodyToSend,
+      });
+      const data = await chatApi(undefined, activeChat.id);
+      setMessages(data.messages || []);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === activeChat.id ? { ...c, preview: bodyToSend } : c))
+      );
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMsg(err.message);
+      setChatInput(bodyToSend);
     } finally {
-      setSending(false);
+      setIsSending(false);
     }
-  }
+  };
+
+  // Handle Photo Picker for Story
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200;
+
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.8);
+          setStoryPhoto(compressed);
+          setStoryType('photo');
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Submit New Story
+  const submitStory = async () => {
+    if (storyType === 'text' && !storyText.trim()) return;
+    if (storyType === 'photo' && !storyPhoto) return;
+
+    setStorySubmitting(true);
+    try {
+      await chatApi({
+        action: 'create_story',
+        type: storyType,
+        content: storyText.trim(),
+        mediaUrl: storyPhoto || '',
+        bgColor: storyColor,
+      });
+      setShowStoryCreator(false);
+      setStoryText('');
+      setStoryPhoto(null);
+      await loadDashboard();
+    } catch (err: unknown) {
+      if (err instanceof Error) alert(err.message);
+    } finally {
+      setStorySubmitting(false);
+    }
+  };
+
+  // Delete Own Story
+  const deleteStory = async (storyId: string) => {
+    if (!confirm('Hapus status ini?')) return;
+    try {
+      await chatApi({ action: 'delete_story', storyId });
+      setActiveStoryGroup(null);
+      await loadDashboard();
+    } catch (err: unknown) {
+      if (err instanceof Error) alert(err.message);
+    }
+  };
+
+  // Save Profile Changes
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileSuccess(false);
+    try {
+      await chatApi({
+        action: 'update_profile',
+        fullName: profileName.trim(),
+        bio: profileBio.trim(),
+        whatsapp: profileWa.trim(),
+      });
+      setProfileSuccess(true);
+      await loadDashboard();
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } catch (err: unknown) {
+      if (err instanceof Error) alert(err.message);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const totalUnread = conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
 
   return (
-    <div className={`xora-chat ${active ? 'has-chat' : ''}`}>
-      <aside className="xora-list">
-        <header>
-          <Link href="/dashboard" aria-label="Kembali ke beranda">
-            <ArrowLeft size={24} />
-          </Link>
-          <h1>Chat kelas</h1>
-          <Chats size={26} />
+    <div className={`xora-shell ${activeChat ? 'has-chat' : ''}`}>
+      {/* ── LEFT PANEL / MAIN VIEW ── */}
+      <aside className="xora-sidebar">
+        {/* Top Header */}
+        <header className="xora-topbar">
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="xora-icon-btn" aria-label="Kembali ke Dashboard">
+              <ArrowLeft size={22} weight="bold" />
+            </Link>
+            <h1 className="text-xl font-black tracking-tight text-[#eaf2ff]">Chat Kelas</h1>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="badge !bg-[#34f5c5] !text-[#070b18] text-[10px] font-black">X SIJA B</span>
+          </div>
         </header>
-        <input
-          aria-label="Cari teman"
-          placeholder="Cari teman…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <p className="xora-caption">Percakapanmu</p>
-        {chats.filter(c => c.title.toLowerCase().includes(search.toLowerCase())).map(c => (
+
+        {/* 3 Tab Navigation (Chat, Pembaruan, Profil) */}
+        <nav className="xora-tabs" aria-label="Tab Menu Xora">
           <button
-            key={c.id}
-            onClick={() => {
-              setMessages([]);
-              setText('');
-              setActive(c);
-            }}
+            type="button"
+            onClick={() => setTab('chats')}
+            className={`xora-tab-btn ${tab === 'chats' ? 'active' : ''}`}
           >
-            <span className="xora-avatar">{c.title[0]}</span>
-            <span>
-              <strong>{c.title}</strong>
-              <small>{c.preview || 'Mulai ngobrol'}</small>
-            </span>
-          </button>
-        ))}
-        <p className="xora-caption">Mulai chat baru</p>
-        {contacts.filter(c => c.full_name.toLowerCase().includes(search.toLowerCase())).map(c => (
-          <button
-            key={c.id}
-            onClick={() => openContact(c.id, c.full_name)}
-          >
-            <span className="xora-avatar">{c.full_name[0]}</span>
-            <strong>{c.full_name}</strong>
-          </button>
-        ))}
-      </aside>
-      <section className="xora-room">
-        {active ? (
-          <>
-            <header>
-              <button aria-label="Kembali ke daftar chat" onClick={() => setActive(null)}>
-                <ArrowLeft size={24} />
-              </button>
-              <span className="xora-avatar">{active.title[0]}</span>
-              <div>
-                <strong>{active.title}</strong>
-                <small>Pesan tersimpan · diperbarui tiap 3 detik</small>
-              </div>
-            </header>
-            <div className="xora-messages" role="log" aria-label="Pesan percakapan">
-              {messages.map((m, i) => (
-                <div key={m.id}>
-                  {(!i || new Date(messages[i-1].created_at).toDateString() !== new Date(m.created_at).toDateString()) && (
-                    <div className="xora-date">
-                      {new Date(m.created_at).toLocaleDateString('id-ID', {
-                        timeZone: 'Asia/Jakarta',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </div>
-                  )}
-                  <article className={`xora-bubble ${m.sender_id === user ? 'mine' : ''}`}>
-                    <p>{m.body}</p>
-                    <small>
-                      {new Date(m.created_at).toLocaleTimeString('id-ID', {
-                        timeZone: 'Asia/Jakarta',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {m.sender_id === user && (
-                        m.read ? (
-                          <Checks size={16} aria-label="Dibaca" className="text-[#38bdf8]" />
-                        ) : (
-                          <Check size={16} aria-label="Terkirim" className="text-[#97a9c9]" />
-                        )
-                      )}
-                    </small>
-                  </article>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+            <div className="flex items-center justify-center gap-1.5">
+              <Chats size={18} weight={tab === 'chats' ? 'fill' : 'bold'} />
+              <span>Chat</span>
+              {totalUnread > 0 ? (
+                <span className="xora-tab-badge">{totalUnread}</span>
+              ) : null}
             </div>
-            <form onSubmit={send} className="xora-compose">
-              <textarea
-                aria-label="Tulis pesan"
-                placeholder="Tulis pesan…"
-                rows={1}
-                maxLength={5000}
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void send();
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab('stories')}
+            className={`xora-tab-btn ${tab === 'stories' ? 'active' : ''}`}
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <CircleDashed size={18} weight={tab === 'stories' ? 'fill' : 'bold'} />
+              <span>Pembaruan</span>
+              {otherGroups.length > 0 ? (
+                <span className="xora-tab-dot" />
+              ) : null}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab('profile')}
+            className={`xora-tab-btn ${tab === 'profile' ? 'active' : ''}`}
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <UserCircle size={18} weight={tab === 'profile' ? 'fill' : 'bold'} />
+              <span>Profil</span>
+            </div>
+          </button>
+        </nav>
+
+        {/* ── CONTENT TAB 1: CHATS ── */}
+        {tab === 'chats' && (
+          <div className="xora-scrollable">
+            <div className="p-3">
+              <input
+                type="text"
+                value={chatSearch}
+                onChange={(e) => setChatSearch(e.target.value)}
+                placeholder="Cari obrolan atau teman sekelas..."
+                className="xora-search-input"
+                aria-label="Cari teman sekelas"
+              />
+            </div>
+
+            {/* Daftar Obrolan Aktif */}
+            <div className="space-y-0.5">
+              <p className="xora-section-label">Percakapan Aktif</p>
+              {conversations.length ? (
+                conversations
+                  .filter((c) => c.title.toLowerCase().includes(chatSearch.toLowerCase()))
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setMessages([]);
+                        setChatInput('');
+                        setActiveChat(c);
+                      }}
+                      className={`xora-chat-item ${activeChat?.id === c.id ? 'active' : ''}`}
+                    >
+                      <div className="xora-avatar-circle">
+                        {c.title.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm text-[#eaf2ff] truncate">{c.title}</span>
+                          {c.last_message_at ? (
+                            <span className="text-[10px] text-[#97a9c9]">
+                              {new Date(c.last_message_at).toLocaleTimeString('id-ID', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                timeZone: 'Asia/Jakarta',
+                              })}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-[#97a9c9] truncate mt-0.5">
+                          {c.preview || 'Ketuk untuk membuka percakapan'}
+                        </p>
+                      </div>
+                      {c.unread_count > 0 ? (
+                        <span className="xora-unread-pill">{c.unread_count}</span>
+                      ) : null}
+                    </button>
+                  ))
+              ) : (
+                <div className="p-4 text-center text-xs text-[#97a9c9]">
+                  Belum ada percakapan aktif. Mulai chat dari daftar teman di bawah!
+                </div>
+              )}
+            </div>
+
+            {/* Kontak Seluruh Teman Kelas */}
+            <div className="space-y-0.5 pt-3">
+              <p className="xora-section-label">Semua Teman Kelas ({contacts.length})</p>
+              {contacts
+                .filter(
+                  (c) =>
+                    c.full_name.toLowerCase().includes(chatSearch.toLowerCase()) ||
+                    c.username.toLowerCase().includes(chatSearch.toLowerCase())
+                )
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => openContact(c.id, c.full_name, c.username)}
+                    className="xora-chat-item"
+                  >
+                    <div className="xora-avatar-circle bg-[#18223a] text-[#5eead4]">
+                      {c.full_name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-[#eaf2ff] truncate">{c.full_name}</span>
+                        <span className="text-[10px] text-[#5eead4]">@{c.username}</span>
+                      </div>
+                      <p className="text-xs text-[#66789b] truncate mt-0.5">{c.bio}</p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── CONTENT TAB 2: PEMBARUAN / STORY ── */}
+        {tab === 'stories' && (
+          <div className="xora-scrollable p-3 space-y-4">
+            {/* Status Saya */}
+            <div className="xora-status-card">
+              <div
+                className="relative cursor-pointer"
+                onClick={() => {
+                  if (myStories.length > 0) {
+                    setActiveStoryGroup(myStories);
+                    setStoryIndex(0);
+                  } else {
+                    setShowStoryCreator(true);
                   }
                 }}
+              >
+                <div
+                  className={`xora-avatar-circle ${
+                    myStories.length > 0 ? 'ring-2 ring-[#34f5c5]' : ''
+                  }`}
+                >
+                  {profile?.full_name?.slice(0, 1).toUpperCase() || 'S'}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowStoryCreator(true);
+                  }}
+                  className="xora-add-story-badge"
+                  title="Tambah Status Baru"
+                >
+                  <Plus size={14} weight="bold" />
+                </button>
+              </div>
+
+              <div
+                className="flex-1 min-w-0 cursor-pointer"
+                onClick={() => {
+                  if (myStories.length > 0) {
+                    setActiveStoryGroup(myStories);
+                    setStoryIndex(0);
+                  } else {
+                    setShowStoryCreator(true);
+                  }
+                }}
+              >
+                <h3 className="text-sm font-bold text-[#eaf2ff]">Status saya</h3>
+                <p className="text-xs text-[#97a9c9]">
+                  {myStories.length > 0
+                    ? `${myStories.length} pembaruan aktif (ketuk untuk melihat)`
+                    : 'Ketuk untuk menambahkan pembaruan status'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowStoryCreator(true)}
+                className="btn-primary !min-h-[36px] !py-1 !px-3 text-xs !bg-[#34f5c5] !text-[#070b18] font-bold"
+              >
+                + Buat
+              </button>
+            </div>
+
+            {/* Pembaruan Terkini Teman Kelas */}
+            <div className="space-y-1 pt-2">
+              <p className="xora-section-label">Pembaruan Terkini</p>
+
+              {otherGroups.length > 0 ? (
+                otherGroups.map((group) => (
+                  <button
+                    key={group.userId}
+                    type="button"
+                    onClick={() => {
+                      setActiveStoryGroup(group.items);
+                      setStoryIndex(0);
+                    }}
+                    className="xora-chat-item !bg-transparent hover:!bg-[#111a2e]"
+                  >
+                    <div className="relative">
+                      <div className="xora-avatar-circle ring-2 ring-[#34f5c5] ring-offset-2 ring-offset-[#070b18]">
+                        {group.fullName.slice(0, 1).toUpperCase()}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <span className="font-bold text-sm text-[#eaf2ff] truncate block">
+                        {group.fullName}
+                      </span>
+                      <span className="text-xs text-[#97a9c9] truncate block mt-0.5">
+                        {group.items.length} status baru ·{' '}
+                        {new Date(group.latestCreatedAt).toLocaleTimeString('id-ID', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'Asia/Jakarta',
+                        })}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="p-6 text-center text-xs text-[#66789b] border border-[#23304c] rounded-[10px] bg-[#111a2e]/40">
+                  <CircleDashed size={36} className="mx-auto text-[#97a9c9] mb-2 opacity-60" />
+                  Belum ada status terbaru dari teman kelas. Jadilah yang pertama membuat status!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── CONTENT TAB 3: PROFIL ── */}
+        {tab === 'profile' && (
+          <div className="xora-scrollable p-4 space-y-5">
+            <div className="text-center space-y-2 py-4">
+              <div className="size-20 rounded-full mx-auto bg-gradient-to-br from-[#34f5c5] to-[#38bdf8] p-1 shadow-[0_0_24px_rgba(52,245,197,0.3)]">
+                <div className="size-full rounded-full bg-[#0b1324] flex items-center justify-center text-2xl font-black text-[#34f5c5]">
+                  {profile?.full_name?.slice(0, 1).toUpperCase() || 'U'}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-[#eaf2ff]">{profile?.full_name}</h2>
+                <p className="text-xs text-[#5eead4]">@{profile?.username}</p>
+                <span className="badge !bg-[#18223a] !text-[#34f5c5] text-[10px] mt-1 inline-block border border-[#23304c]">
+                  {profile?.role === 'ADMIN' ? 'Pengurus Kelas' : 'Siswa X SIJA B'}
+                </span>
+              </div>
+            </div>
+
+            {profileSuccess ? (
+              <div className="p-3 bg-[#10b981]/20 border border-[#10b981] text-[#34f5c5] rounded-[8px] text-xs font-bold text-center">
+                Perubahan profil berhasil disimpan!
+              </div>
+            ) : null}
+
+            <form onSubmit={saveProfile} className="space-y-4">
+              <label className="block">
+                <span className="block text-xs font-bold text-[#97a9c9] mb-1">Nama Lengkap</span>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  required
+                  className="xora-field"
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-xs font-bold text-[#97a9c9] mb-1">Info / Bio</span>
+                <textarea
+                  value={profileBio}
+                  onChange={(e) => setProfileBio(e.target.value)}
+                  rows={3}
+                  maxLength={300}
+                  placeholder="Ceritakan tentang dirimu..."
+                  className="xora-field resize-none leading-relaxed"
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-xs font-bold text-[#97a9c9] mb-1">Nomor WhatsApp</span>
+                <input
+                  type="tel"
+                  value={profileWa}
+                  onChange={(e) => setProfileWa(e.target.value)}
+                  placeholder="Contoh: 081234567890"
+                  className="xora-field"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={profileSaving}
+                className="btn-primary !bg-[#34f5c5] !text-[#070b18] w-full font-black text-sm flex items-center justify-center gap-2 !min-h-[46px]"
+              >
+                <FloppyDisk size={18} weight="bold" />
+                {profileSaving ? 'Menyimpan...' : 'Simpan Profil'}
+              </button>
+            </form>
+          </div>
+        )}
+      </aside>
+
+      {/* ── RIGHT PANEL / CHAT ROOM ── */}
+      <main className="xora-room">
+        {activeChat ? (
+          <>
+            {/* Room Header */}
+            <header className="xora-room-header">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveChat(null)}
+                  className="xora-icon-btn md:hidden"
+                  aria-label="Kembali ke Daftar Chat"
+                >
+                  <ArrowLeft size={22} weight="bold" />
+                </button>
+                <div className="xora-avatar-circle !size-10">
+                  {activeChat.title.slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#eaf2ff] leading-tight truncate">
+                    {activeChat.title}
+                  </h2>
+                  <p className="text-[11px] text-[#5eead4]">
+                    @{activeChat.partner_username} · X SIJA B
+                  </p>
+                </div>
+              </div>
+            </header>
+
+            {/* Messages Timeline */}
+            <div className="xora-messages-container" role="log" aria-label="Riwayat Percakapan">
+              {messages.map((m, i) => {
+                const prevDate = i > 0 ? new Date(messages[i - 1].created_at).toDateString() : null;
+                const currDate = new Date(m.created_at).toDateString();
+                const showDate = prevDate !== currDate;
+                const isMine = m.sender_id === userId;
+
+                return (
+                  <div key={m.id}>
+                    {showDate && (
+                      <div className="xora-date-divider">
+                        <span>
+                          {new Date(m.created_at).toLocaleDateString('id-ID', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'short',
+                            timeZone: 'Asia/Jakarta',
+                          })}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className={`xora-bubble-row ${isMine ? 'mine' : 'theirs'}`}>
+                      <div className={`xora-bubble ${isMine ? 'mine' : 'theirs'}`}>
+                        <p className="text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
+                          {m.body}
+                        </p>
+                        <div className="xora-bubble-footer">
+                          <span className="text-[10px] text-[#97a9c9]">
+                            {new Date(m.created_at).toLocaleTimeString('id-ID', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Jakarta',
+                            })}
+                          </span>
+                          {isMine && (
+                            <span className="ml-1">
+                              {m.read ? (
+                                <Checks size={15} weight="bold" className="text-[#38bdf8]" />
+                              ) : (
+                                <Check size={15} weight="bold" className="text-[#97a9c9]" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Room Input Composer */}
+            <form onSubmit={sendMessage} className="xora-composer">
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+                rows={1}
+                placeholder="Tulis pesan..."
+                className="xora-composer-input"
+                aria-label="Tulis pesan"
               />
-              <button disabled={sending || !text.trim()} aria-label={sending ? 'Mengirim' : 'Kirim pesan'}>
-                <PaperPlaneRight size={24} />
+              <button
+                type="submit"
+                disabled={isSending || !chatInput.trim()}
+                className="xora-send-btn"
+                aria-label="Kirim pesan"
+              >
+                <PaperPlaneRight size={20} weight="fill" />
               </button>
             </form>
           </>
         ) : (
-          <div className="xora-empty">
-            <Chats size={52} />
-            <h2>Obrolan kecil, cerita panjang.</h2>
-            <p>Pilih teman buat mulai ngobrol.</p>
+          <div className="xora-empty-room">
+            <div className="size-20 rounded-full bg-[#111a2e] border border-[#23304c] flex items-center justify-center text-[#34f5c5] mx-auto mb-4 shadow-[0_0_24px_rgba(52,245,197,0.15)]">
+              <Chats size={44} weight="duotone" />
+            </div>
+            <h2 className="text-xl font-black text-[#eaf2ff]">Ruang Percakapan Kelas</h2>
+            <p className="text-xs text-[#97a9c9] max-w-sm mx-auto mt-1 leading-relaxed">
+              Pilih teman sekelas dari panel kiri untuk mulai mengobrol, berbagi info tugas, atau berdiskusi santai.
+            </p>
           </div>
         )}
-        {error && <p role="alert" className="xora-error">{error}</p>}
-      </section>
+
+        {errorMsg ? (
+          <div className="p-3 bg-[#fb7185]/20 text-[#fb7185] border-t border-[#fb7185]/40 text-xs text-center font-bold">
+            {errorMsg}
+          </div>
+        ) : null}
+      </main>
+
+      {/* ── MODAL: STORY CREATOR (STATUS BARU) ── */}
+      {showStoryCreator && (
+        <div className="xora-modal-overlay">
+          <div className="xora-story-dialog">
+            <div className="flex items-center justify-between border-b border-[#23304c] pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStoryType('text')}
+                  className={`px-3 py-1 text-xs font-bold rounded-[6px] border ${
+                    storyType === 'text'
+                      ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]'
+                      : 'bg-transparent text-[#97a9c9] border-[#23304c]'
+                  }`}
+                >
+                  <TextT size={15} className="inline mr-1" />
+                  Status Teks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStoryType('photo');
+                    photoInputRef.current?.click();
+                  }}
+                  className={`px-3 py-1 text-xs font-bold rounded-[6px] border ${
+                    storyType === 'photo'
+                      ? 'bg-[#34f5c5] text-[#070b18] border-[#34f5c5]'
+                      : 'bg-transparent text-[#97a9c9] border-[#23304c]'
+                  }`}
+                >
+                  <Camera size={15} className="inline mr-1" />
+                  Status Foto
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowStoryCreator(false)}
+                className="xora-icon-btn"
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <input
+              type="file"
+              ref={photoInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+
+            {storyType === 'text' ? (
+              <div className="space-y-3">
+                <div
+                  className="rounded-[10px] p-6 min-h-[180px] flex items-center justify-center transition"
+                  style={{ backgroundColor: storyColor }}
+                >
+                  <textarea
+                    value={storyText}
+                    onChange={(e) => setStoryText(e.target.value)}
+                    maxLength={1000}
+                    placeholder="Ketik apa yang sedang terjadi..."
+                    className="w-full bg-transparent text-white text-center font-bold text-lg resize-none placeholder-white/70 focus:outline-none"
+                    rows={4}
+                  />
+                </div>
+
+                {/* Color Palettes Preset Xora */}
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  {COLOR_PRESETS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setStoryColor(color)}
+                      className={`size-7 rounded-full border-2 transition ${
+                        storyColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title="Ganti warna latar"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {storyPhoto ? (
+                  <div className="relative rounded-[10px] overflow-hidden bg-black/40 max-h-[260px] flex items-center justify-center border border-[#23304c]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={storyPhoto} alt="Status Preview" className="max-h-[260px] object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => setStoryPhoto(null)}
+                      className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full text-white hover:bg-black"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => photoInputRef.current?.click()}
+                    className="p-8 border-2 border-dashed border-[#23304c] rounded-[10px] text-center cursor-pointer hover:bg-[#111a2e]"
+                  >
+                    <ImageIcon size={36} className="mx-auto text-[#34f5c5] mb-2" />
+                    <p className="text-xs font-bold text-[#eaf2ff]">Klik untuk pilih foto status</p>
+                    <p className="text-[10px] text-[#97a9c9] mt-0.5">JPG / PNG otomatis dikompresi</p>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  value={storyText}
+                  onChange={(e) => setStoryText(e.target.value)}
+                  placeholder="Tambahkan keterangan foto (opsional)..."
+                  className="xora-field text-xs"
+                />
+              </div>
+            )}
+
+            <div className="pt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowStoryCreator(false)}
+                className="btn-secondary !bg-transparent !text-[#97a9c9] !border-[#23304c] !min-h-[38px] text-xs font-bold"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={
+                  storySubmitting ||
+                  (storyType === 'text' && !storyText.trim()) ||
+                  (storyType === 'photo' && !storyPhoto)
+                }
+                onClick={submitStory}
+                className="btn-primary !bg-[#34f5c5] !text-[#070b18] !min-h-[38px] text-xs font-black px-4"
+              >
+                {storySubmitting ? 'Mengunggah...' : 'Bagikan Status (24 Jam)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN STORY VIEWER (ALA WHATSAPP / INSTAGRAM) ── */}
+      {activeStoryGroup && activeStoryGroup.length > 0 && (
+        <div
+          className="xora-story-viewer-overlay"
+          onMouseDown={() => setStoryPaused(true)}
+          onMouseUp={() => setStoryPaused(false)}
+          onTouchStart={() => setStoryPaused(true)}
+          onTouchEnd={() => setStoryPaused(false)}
+        >
+          {/* Progress Bars */}
+          <div className="xora-story-progress-bar">
+            {activeStoryGroup.map((s, idx) => {
+              let width = 0;
+              if (idx < storyIndex) width = 100;
+              else if (idx === storyIndex) width = storyProgress;
+
+              return (
+                <div key={s.id} className="xora-progress-track">
+                  <div className="xora-progress-fill" style={{ width: `${width}%` }} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Story Header */}
+          <div className="xora-story-top-row">
+            <div className="flex items-center gap-2">
+              <div className="xora-avatar-circle !size-9">
+                {activeStoryGroup[storyIndex]?.full_name?.slice(0, 1).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white leading-tight">
+                  {activeStoryGroup[storyIndex]?.full_name}
+                </p>
+                <p className="text-[10px] text-white/70">
+                  {new Date(activeStoryGroup[storyIndex]?.created_at).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Jakarta',
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeStoryGroup[storyIndex]?.user_id === userId && (
+                <button
+                  type="button"
+                  onClick={() => deleteStory(activeStoryGroup[storyIndex].id)}
+                  className="p-2 text-white/80 hover:text-[#fb7185]"
+                  title="Hapus status ini"
+                >
+                  <Trash size={20} weight="bold" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveStoryGroup(null)}
+                className="p-2 text-white/80 hover:text-white"
+                title="Tutup"
+              >
+                <X size={22} weight="bold" />
+              </button>
+            </div>
+          </div>
+
+          {/* Story Content Area */}
+          <div
+            className="xora-story-body"
+            style={{
+              backgroundColor:
+                activeStoryGroup[storyIndex]?.type === 'text'
+                  ? activeStoryGroup[storyIndex]?.bg_color
+                  : '#070b18',
+            }}
+          >
+            {activeStoryGroup[storyIndex]?.type === 'text' ? (
+              <p className="text-white text-xl sm:text-2xl font-black text-center px-6 max-w-lg leading-relaxed whitespace-pre-wrap">
+                {activeStoryGroup[storyIndex]?.content}
+              </p>
+            ) : (
+              <div className="flex flex-col items-center justify-center size-full p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={activeStoryGroup[storyIndex]?.media_url || ''}
+                  alt="Story"
+                  className="max-h-[75vh] max-w-full object-contain rounded-[8px]"
+                />
+                {activeStoryGroup[storyIndex]?.content ? (
+                  <p className="text-white text-sm font-semibold bg-black/60 px-4 py-2 rounded-[20px] mt-3 max-w-md text-center">
+                    {activeStoryGroup[storyIndex]?.content}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Left / Right Tap Handlers */}
+          <div
+            className="xora-story-tap-left"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (storyIndex > 0) {
+                setStoryIndex((i) => i - 1);
+              }
+            }}
+          />
+          <div
+            className="xora-story-tap-right"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (storyIndex < activeStoryGroup.length - 1) {
+                setStoryIndex((i) => i + 1);
+              } else {
+                setActiveStoryGroup(null);
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
