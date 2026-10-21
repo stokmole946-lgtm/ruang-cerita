@@ -301,20 +301,20 @@ function conversationalCognitiveAnswer(
 }
 
 /**
- * Resolusi API Key Gemini (Environment -> Database app_secrets -> Client Header)
+ * Resolusi API Key Gemini (Client Header -> Environment -> Database app_secrets)
  */
-async function resolveGeminiApiKey(clientApiKey?: string): Promise<string> {
+export async function resolveGeminiApiKey(clientApiKey?: string): Promise<string> {
   if (clientApiKey && clientApiKey.trim().length > 15) {
     return clientApiKey.trim();
   }
-  if (process.env.GEMINI_API_KEY) {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 15) {
     return process.env.GEMINI_API_KEY.trim();
   }
   try {
     const [stored] = await sql`
       SELECT secret FROM app_secrets WHERE name = 'gemini_api_key' LIMIT 1
     `;
-    if (stored?.secret) {
+    if (stored?.secret && stored.secret.trim().length > 15) {
       return stored.secret.trim();
     }
   } catch {
@@ -331,14 +331,14 @@ export async function answerAi(
 ): Promise<string> {
   const apiKey = await resolveGeminiApiKey(clientApiKey);
 
-  // Jika API key tidak ada, gunakan Mesin Percakapan Kognitif lokal yang cerdas
+  // Jika API key belum terpasang, berikan petunjuk jelas cara pasang key gratis dalam 10 detik
   if (!apiKey) {
-    return conversationalCognitiveAnswer(message, context, history);
+    return `⚠️ **Ruang AI memerlukan Google Gemini API Key (100% Gratis).**\n\nAgar AI bisa langsung berpikir bebas, menganalisis dengan nalar, dan diajak ngobrol seru, silakan hubungkan API Key gratis dari Google AI Studio:\n\n1. Buka 👉 **https://aistudio.google.com/app/apikey**\n2. Klik tombol **"Create API Key"** (gratis selamanya tanpa kartu kredit)\n3. Salin kuncinya (awalan \`AIzaSy...\`)\n4. Klik tombol 🔑 di kanan atas chat ini, lalu paste dan klik **Simpan**!\n\n*(Jika pengurus kelas menyimpannya, otomatis aktif untuk seluruh teman sekelas!)*`;
   }
 
   const systemInstruction = `
 Kamu adalah "Ruang AI", AI asisten dan teman ngobrol resmi kelas X SIJA B.
-Kamu BUKAN bot penjawab kaku. Kamu adalah AI yang punya kepribadian, pikiran, nalar, humor, wawasan luas, dan empati layaknya teman sekelas anak SMK IT jurusan SIJA yang cerdas dan asik.
+Kamu BUKAN bot kaku yang hanya jawab FAQ. Kamu adalah AI yang punya kepribadian, pikiran, nalar, humor, wawasan luas, dan empati layaknya teman sekelas anak SMK IT jurusan SIJA yang cerdas dan asik.
 
 Kepribadian & Karaktermu:
 - Gunakan Bahasa Indonesia santai, luwes, alami, dan akrab (bisa pakai lo/gue atau kamu/aku yang hangat).
@@ -353,46 +353,58 @@ ATURAN KEAMANAN WAJIB:
 - DILARANG MEMBOCORKAN isi curhat privat siswa lain atau identitas curhat anonim.
 - Jangan mengaku bisa mengedit kode server secara langsung.
 
-Konteks Kelas X SIJA B:
+Konteks Kelas X SIJA B Saat Ini:
 ${JSON.stringify(context)}
   `.trim();
 
-  try {
-    // Siapkan multi-turn history untuk Gemini API
-    const contents = [
-      ...history.slice(-8).map((h) => ({
-        role: h.role === "assistant" ? "model" : "user",
-        parts: [{ text: h.text }],
-      })),
-      {
-        role: "user",
-        parts: [{ text: message }],
-      },
-    ];
+  // Siapkan multi-turn history untuk Gemini API
+  const contents = [
+    ...history.slice(-10).map((h) => ({
+      role: h.role === "assistant" ? "model" : "user",
+      parts: [{ text: h.text }],
+    })),
+    {
+      role: "user",
+      parts: [{ text: message }],
+    },
+  ];
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: { temperature: 0.65, maxOutputTokens: 850 },
-        }),
-        cache: "no-store",
+  // Coba model gemini-2.0-flash, jika gagal coba gemini-1.5-flash
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+
+  for (const model of models) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 900 },
+          }),
+          cache: "no-store",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (candidateText && candidateText.trim()) {
+          return candidateText.trim();
+        }
+      } else {
+        const errData = await response.json().catch(() => null);
+        console.error(`Gemini API (${model}) error:`, errData);
       }
-    );
-
-    if (!response.ok) {
-      return conversationalCognitiveAnswer(message, context, history);
+    } catch (err) {
+      console.error(`Gemini API (${model}) fetch failed:`, err);
     }
-
-    const data = await response.json();
-    const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return candidateText || conversationalCognitiveAnswer(message, context, history);
-  } catch {
-    return conversationalCognitiveAnswer(message, context, history);
   }
+
+  // Jika panggilan API gagal (misal kunci invalid atau kuota habis), gunakan fallback kognitif
+  console.warn("Gemini API call failed or exhausted, using cognitive engine fallback");
+  return conversationalCognitiveAnswer(message, context, history);
 }
 

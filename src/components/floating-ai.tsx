@@ -24,25 +24,44 @@ export function FloatingAi() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [geminiKey, setGeminiKey] = useState('');
+  const [serverHasKey, setServerHasKey] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [tempKeyInput, setTempKeyInput] = useState('');
+  const [keyNotice, setKeyNotice] = useState('');
 
   const [messages, setMessages] = useState<AiMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Halo! Gue Ruang AI, asisten sekaligus teman ngobrol anak X SIJA B. 🧠✨\n\nGue punya pikiran dan nalar sendiri, paham seluk-beluk materi SIJA (Mikrotik, Cisco, Linux, SQL, coding), dan tahu pantauan kelas kita. Mau ngobrol apa hari ini? Mau diskusi opini, curhat santai, atau butuh bantuan tugas?',
+      text: 'Halo! Gue Ruang AI, asisten resmi dan teman ngobrol kelas X SIJA B. 🧠✨\n\nGue terhubung ke API kecerdasan buatan, punya nalar dan pikiran sendiri, paham materi SIJA (Mikrotik, Cisco, Linux, SQL, coding), dan tahu pantauan kelas kita. Mau ngobrol apa hari ini? Mau diskusi opini, curhat santai, atau butuh bantuan tugas?',
     },
   ]);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const checkStatus = () => {
+    fetch('/api/ai/chat')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setServerHasKey(Boolean(data.hasApiKey));
+          setIsAdmin(Boolean(data.isAdmin));
+        }
+      })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     setFabHidden(localStorage.getItem('rc-ai-fab-hidden') === '1');
     const savedKey = localStorage.getItem('rc-gemini-key') || '';
     setGeminiKey(savedKey);
     setTempKeyInput(savedKey);
+    checkStatus();
 
-    const show = () => setOpen(true);
+    const show = () => {
+      setOpen(true);
+      checkStatus();
+    };
     const restore = () => {
       setFabHidden(false);
       localStorage.removeItem('rc-ai-fab-hidden');
@@ -64,15 +83,48 @@ export function FloatingAi() {
     localStorage.setItem('rc-ai-fab-hidden', '1');
   };
 
-  const handleSaveKey = () => {
+  const handleSaveKey = async () => {
     const cleaned = tempKeyInput.trim();
-    setGeminiKey(cleaned);
+    setKeyNotice('');
+
     if (cleaned) {
       localStorage.setItem('rc-gemini-key', cleaned);
+      setGeminiKey(cleaned);
+
+      // Jika admin, tawarkan simpan ke server agar aktif untuk seluruh kelas
+      if (isAdmin) {
+        try {
+          const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set_api_key', key: cleaned }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setServerHasKey(true);
+            setKeyNotice(data.message || '✅ Kunci tersimpan di database kelas! Semua siswa kini bisa pakai Gemini.');
+            setTimeout(() => {
+              setKeyNotice('');
+              setShowKeyInput(false);
+            }, 3000);
+            return;
+          } else {
+            setKeyNotice(data.error || 'Gagal menyimpan kunci di server.');
+          }
+        } catch {
+          // fallback to local storage
+        }
+      }
+      setKeyNotice('✅ Kunci tersimpan di perangkat kamu!');
+      setTimeout(() => {
+        setKeyNotice('');
+        setShowKeyInput(false);
+      }, 2000);
     } else {
       localStorage.removeItem('rc-gemini-key');
+      setGeminiKey('');
+      setShowKeyInput(false);
     }
-    setShowKeyInput(false);
   };
 
   const resetChat = () => {
@@ -161,8 +213,10 @@ export function FloatingAi() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h2>Ruang AI</h2>
-                  <span className="badge !py-0.5 !px-2 text-[9px] !bg-[#007aff] !text-white font-bold">
-                    {geminiKey ? 'Gemini 2.0' : 'SIJA Mind'}
+                  <span className={`badge !py-0.5 !px-2 text-[9px] font-bold ${
+                    serverHasKey || geminiKey ? '!bg-[#34c759] !text-white' : '!bg-[#ff9500] !text-white'
+                  }`}>
+                    {serverHasKey || geminiKey ? '● API Gemini Aktif' : '⚠️ Butuh API Key'}
                   </span>
                 </div>
                 <p>
@@ -174,8 +228,8 @@ export function FloatingAi() {
                 <button
                   type="button"
                   onClick={() => setShowKeyInput(!showKeyInput)}
-                  className={`p-2 rounded-full border transition ${showKeyInput || geminiKey ? 'bg-[#007aff]/15 border-[#007aff] text-[#007aff]' : 'bg-white/60 border-black/10 text-slate-600'}`}
-                  title="Atur Gemini API Key (Opsional)"
+                  className={`p-2 rounded-full border transition ${showKeyInput || geminiKey || serverHasKey ? 'bg-[#007aff]/15 border-[#007aff] text-[#007aff]' : 'bg-white/60 border-black/10 text-slate-600'}`}
+                  title="Atur Gemini API Key (Gratis)"
                 >
                   <Key size={16} weight="bold" />
                 </button>
@@ -194,14 +248,28 @@ export function FloatingAi() {
             </header>
 
             {showKeyInput && (
-              <div className="mx-3 mt-2 p-3 bg-white/80 border border-black/10 rounded-[14px] shadow-sm text-xs space-y-2 animate-fade-in">
+              <div className="mx-3 mt-2 p-3 bg-white/90 border border-black/10 rounded-[14px] shadow-sm text-xs space-y-2.5 animate-fade-in">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800">🔑 Gemini API Key (Opsional)</span>
-                  <span className="text-[10px] text-slate-500">Gratis dari Google AI Studio</span>
+                  <span className="font-bold text-slate-900">🔑 Google Gemini API Key (100% Gratis)</span>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-[#007aff] font-bold underline"
+                  >
+                    Dapatkan Kunci Gratis ↗
+                  </a>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Jika diisi, AI akan memakai Google Gemini 2.0 Flash penuh. Jika kosong, AI memakai mesin kognitif lokal SIJA.
+                  Dapatkan kunci gratis tanpa kartu kredit di <strong className="text-slate-800">aistudio.google.com</strong>. {isAdmin ? 'Sebagai pengurus, kunci yang kamu simpan akan aktif untuk seluruh kelas!' : 'Kunci akan tersimpan aman di perangkat kamu.'}
                 </p>
+
+                {keyNotice && (
+                  <p className="p-2 bg-[#b9f3db] text-[#113a27] text-[11px] font-bold rounded-lg text-center">
+                    {keyNotice}
+                  </p>
+                )}
+
                 <div className="flex gap-2">
                   <input
                     type="password"
