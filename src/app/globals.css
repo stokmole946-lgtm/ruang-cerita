@@ -211,21 +211,245 @@ html[data-wallpaper="blueprint"] body { background-color:#dbeafe; background-ima
 html[data-wallpaper="nebula"] body { background:radial-gradient(circle at 20% 20%,#312e81 0,transparent 40%),radial-gradient(circle at 80% 25%,#701a75 0,transparent 38%),radial-gradient(circle at 50% 85%,#0c4a6e 0,transparent 45%),#020617; background-attachment:fixed; }
 html[data-wallpaper="custom"] body { background-image:linear-gradient(rgba(8,12,20,.14),rgba(8,12,20,.14)),var(--custom-wallpaper); background-size:cover; background-position:center; background-attachment:fixed; }
 
-html[data-theme="ios-glass"] { --ink:#172033; --paper:rgba(244,247,255,.58); --blue:#3478f6; --yellow:#ffd85b; --mint:#b9f3db; --coral:#ffaca3; --muted:#5f6b80; }
-html[data-theme="ios-glass"] .app-frame { max-width:none; }
+html[data-theme="ios-glass"] {
+  --ink: #1c1c1e;
+  --paper: #f2f2f7;
+  --blue: #007aff;
+  --yellow: #ff9500;
+  --mint: #34c759;
+  --coral: #ff3b30;
+  --muted: #8e8e93;
+}
+html[data-theme="ios-glass"] body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif !important;
+  letter-spacing: -0.015em;
+  background-color: #f2f2f7 !important;
+  color: #1c1c1e !important;
+}
+html[data-theme="ios-glass"] .app-frame {
+  max-width: none;
+}
+
+/* Force-strip all Neo-Brutalist black borders & hard black 3D block shadows */
+html[data-theme="ios-glass"] [class*="border-[#20201e]"],
+html[data-theme="ios-glass"] [class*="border-2"],
+html[data-theme="ios-glass"] .border,
+html[data-theme="ios-glass"] .border-2 {
+  border-color: rgba(60, 60, 67, 0.12) !important;
+  border-width: 0.5px !important;
+}
+html[data-theme="ios-glass"] [class*="shadow-["],
+html[data-theme="ios-glass"] .shadow,
+html[data-theme="ios-glass"] .shadow-md,
+html[data-theme="ios-glass"] .shadow-lg {
+  box-shadow: 0 4px 24px -2px rgba(15, 30, 60, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Transform all panels and cards into pure Apple Glass Inset Grouped cards */
 html[data-theme="ios-glass"] .panel,
 html[data-theme="ios-glass"] .glass,
-html[data-theme="ios-glass"] .app-sidebar,
-html[data-theme="ios-glass"] .mobile-header,
-html[data-theme="ios-glass"] .sheet-content { background:rgba(255,255,255,.58)!important; border:1px solid rgba(255,255,255,.76)!important; box-shadow:0 18px 55px rgba(31,52,89,.16),inset 0 1px 0 rgba(255,255,255,.9)!important; backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border-radius:22px!important; }
-html[data-theme="ios-glass"] .app-sidebar { margin:14px; height:calc(100dvh - 28px); position:sticky; border-radius:26px!important; }
-html[data-theme="ios-glass"] .field { border:1px solid rgba(85,105,145,.18); border-radius:14px; background:rgba(255,255,255,.68); box-shadow:inset 0 1px 0 rgba(255,255,255,.9); }
+html[data-theme="ios-glass"] [class*="bg-[#fffef9]"],
+html[data-theme="ios-glass"] [class*="bg-white"] {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border-radius: 20px !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 10px 32px -4px rgba(25, 45, 80, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Transform opaque retro yellow/coral/mint hero blocks into soft iOS frosted translucent cards */
+html[data-theme="ios-glass"] [class*="bg-[#ffdb59]"],
+html[data-theme="ios-glass"] [class*="bg-[#b9e2ce]"],
+html[data-theme="ios-glass"] [class*="bg-[#ffa18b]"],
+html[data-theme="ios-glass"] [class*="bg-[#c5d3ff]"],
+html[data-theme="ios-glass"] [class*="bg-[#eeeee5]"] {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-radius: 18px !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.05) !important;
+  color: #1c1c1e !important;
+}
+
+/* Pure Apple iOS System Buttons (Capsule Pills) */
 html[data-theme="ios-glass"] .btn-primary,
+html[data-theme="ios-glass"] button[class*="btn-primary"],
+html[data-theme="ios-glass"] a[class*="btn-primary"] {
+  background: #007aff !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+html[data-theme="ios-glass"] .btn-primary:active {
+  transform: scale(0.97) !important;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25) !important;
+}
 html[data-theme="ios-glass"] .btn-secondary,
-html[data-theme="ios-glass"] .btn-danger { border:1px solid rgba(255,255,255,.58); border-radius:999px; box-shadow:0 8px 22px rgba(32,67,122,.16),inset 0 1px 0 rgba(255,255,255,.56); }
-html[data-theme="ios-glass"] .badge { border:1px solid rgba(255,255,255,.68); border-radius:999px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7); }
-html[data-theme="ios-glass"] .nav-link[aria-current=page] { background:rgba(255,255,255,.72); border:1px solid rgba(255,255,255,.9); border-radius:15px; box-shadow:0 8px 24px rgba(37,63,107,.14); }
-@media(max-width:767px) { html[data-theme="ios-glass"] .mobile-tabs { left:12px; right:12px; bottom:10px; border:1px solid rgba(255,255,255,.72); border-radius:24px; background:rgba(250,252,255,.68); box-shadow:0 18px 42px rgba(20,38,72,.23),inset 0 1px 0 #fff; backdrop-filter:blur(28px) saturate(190%); -webkit-backdrop-filter:blur(28px) saturate(190%); } html[data-theme="ios-glass"] .mobile-tabs [aria-current=page] .tab-icon,html[data-theme="ios-glass"] .mobile-tabs .tab-selected .tab-icon { background:rgba(255,255,255,.82); border:0; outline:0; box-shadow:0 5px 14px rgba(45,76,132,.18); border-radius:999px; } }
+html[data-theme="ios-glass"] button[class*="btn-secondary"],
+html[data-theme="ios-glass"] a[class*="btn-secondary"] {
+  background: rgba(120, 120, 128, 0.12) !important;
+  color: #007aff !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+html[data-theme="ios-glass"] .btn-secondary:active {
+  transform: scale(0.97) !important;
+  background: rgba(120, 120, 128, 0.2) !important;
+}
+html[data-theme="ios-glass"] .btn-danger,
+html[data-theme="ios-glass"] button[class*="btn-danger"] {
+  background: rgba(255, 59, 48, 0.12) !important;
+  color: #ff3b30 !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+/* Pure Apple iOS Badges & Chips */
+html[data-theme="ios-glass"] .badge {
+  border-radius: 9999px !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  padding: 4px 11px !important;
+  background: rgba(120, 120, 128, 0.12) !important;
+  color: #1c1c1e !important;
+}
+
+/* Pure Apple iOS Inset Inputs */
+html[data-theme="ios-glass"] .field,
+html[data-theme="ios-glass"] input.field,
+html[data-theme="ios-glass"] textarea.field,
+html[data-theme="ios-glass"] select.field {
+  border-radius: 14px !important;
+  background: rgba(118, 118, 128, 0.12) !important;
+  border: 0.5px solid rgba(60, 60, 67, 0.18) !important;
+  box-shadow: none !important;
+  color: #1c1c1e !important;
+  font-weight: 500 !important;
+}
+html[data-theme="ios-glass"] .field:focus {
+  outline: 2px solid #007aff !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Brand mark in clean iOS App Icon style */
+html[data-theme="ios-glass"] .brand-mark {
+  transform: none !important;
+  border-radius: 14px !important;
+  border: none !important;
+  background: linear-gradient(145deg, #007aff, #5856d6) !important;
+  color: white !important;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3) !important;
+}
+
+/* Desktop sidebar iOS styling */
+html[data-theme="ios-glass"] .app-sidebar {
+  margin: 16px 0 16px 16px !important;
+  height: calc(100dvh - 32px) !important;
+  border-radius: 24px !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+}
+html[data-theme="ios-glass"] .nav-link {
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+html[data-theme="ios-glass"] .nav-link[aria-current="page"] {
+  background: rgba(0, 122, 255, 0.12) !important;
+  color: #007aff !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+
+/* Floating iOS Bottom Dock Navigation */
+@media(max-width:767px) {
+  html[data-theme="ios-glass"] .mobile-tabs {
+    border: 0.5px solid rgba(255, 255, 255, 0.75) !important;
+    background: rgba(252, 252, 254, 0.76) !important;
+    backdrop-filter: blur(32px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+    border-radius: 28px !important;
+    left: 14px !important;
+    right: 14px !important;
+    bottom: 12px !important;
+  }
+  html[data-theme="ios-glass"] .mobile-tabs [aria-current="page"],
+  html[data-theme="ios-glass"] .mobile-tabs .tab-selected {
+    color: #007aff !important;
+  }
+  html[data-theme="ios-glass"] .mobile-tabs [aria-current="page"] .tab-icon,
+  html[data-theme="ios-glass"] .mobile-tabs .tab-selected .tab-icon {
+    background: rgba(0, 122, 255, 0.12) !important;
+    color: #007aff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 9999px !important;
+  }
+}
+
+/* Chat: Apple iMessage Style */
+html[data-theme="ios-glass"] .xora-shell {
+  border: 0.5px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08) !important;
+  background: rgba(246, 246, 248, 0.75) !important;
+  backdrop-filter: blur(30px) saturate(180%) !important;
+}
+html[data-theme="ios-glass"] .xora-bubble.mine {
+  background: linear-gradient(180deg, #0a84ff 0%, #007aff 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 18px 18px 4px 18px !important;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.28) !important;
+}
+html[data-theme="ios-glass"] .xora-bubble.mine * {
+  color: #ffffff !important;
+}
+html[data-theme="ios-glass"] .xora-bubble.theirs {
+  background: rgba(230, 230, 235, 0.9) !important;
+  color: #000000 !important;
+  border: none !important;
+  border-radius: 18px 18px 18px 4px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+html[data-theme="ios-glass"] .xora-bubble.theirs * {
+  color: #1c1c1e !important;
+}
+html[data-theme="ios-glass"] .xora-composer {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(20px) !important;
+  border-top: 0.5px solid rgba(60, 60, 67, 0.12) !important;
+}
+html[data-theme="ios-glass"] .xora-composer-input {
+  border-radius: 20px !important;
+  background: rgba(118, 118, 128, 0.12) !important;
+  border: 0.5px solid rgba(60, 60, 67, 0.14) !important;
+  box-shadow: none !important;
+}
+html[data-theme="ios-glass"] .xora-send-btn {
+  background: #007aff !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3) !important;
+}
 
 html[data-theme="midnight"] { --ink:#d7e7ff; --paper:#07111f; --blue:#0ea5e9; --yellow:#22c55e; --mint:#153b35; --coral:#7f1d1d; --muted:#8da4c4; color-scheme:dark; }
 html[data-theme="midnight"] body { background:#07111f; color:#d7e7ff; }

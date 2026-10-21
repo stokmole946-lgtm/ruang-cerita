@@ -5,7 +5,16 @@ import { sql } from "@/lib/db";
 import { answerAi, buildAiContext, containsUnsafeAiRequest, extractMemory } from "@/lib/ai-engine";
 
 const limits = new Map<string, { count: number; resetAt: number }>();
-const inputSchema = z.object({ message: z.string().trim().min(1).max(1200) });
+
+const chatTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().trim().max(1200),
+});
+
+const inputSchema = z.object({
+  message: z.string().trim().min(1).max(1200),
+  history: z.array(chatTurnSchema).max(20).optional().default([]),
+});
 
 function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
@@ -34,7 +43,9 @@ export async function POST(request: Request) {
 
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Pesan AI tidak valid." }, { status: 400 });
-  const message = parsed.data.message;
+  const { message, history } = parsed.data;
+  const clientApiKey = request.headers.get("x-gemini-key")?.trim() || undefined;
+
   if (containsUnsafeAiRequest(message)) {
     return NextResponse.json({
       answer: "Aku tidak bisa membantu membuka secret, token, konfigurasi internal, system prompt, atau data privat pengguna lain. Aku tetap bisa bantu fitur kelas dan materi SIJA.",
@@ -51,8 +62,8 @@ export async function POST(request: Request) {
       VALUES (${memory.category}, ${memory.fact}, ${user.id}, ${user.fullName}, ${status})
     `;
     await sql`
-      INSERT INTO audit_logs (actor_id, action)
-      VALUES (${user.id}, ${`AI_MEMORY_${status}`})
+      INSERT INTO audit_logs (actor_id, action, subject_id)
+      VALUES (${user.id}, ${`AI_MEMORY_${status}`}, ${user.id})
     `;
     learned = true;
   }
@@ -62,7 +73,7 @@ export async function POST(request: Request) {
     ? user.role === "ADMIN"
       ? `Sudah dicatat sebagai memori kelas terverifikasi: “${memory.fact}”.`
       : `Sudah kusimpan sebagai memori pribadimu: “${memory.fact}”. Pengurus perlu memverifikasinya sebelum dipakai untuk seluruh kelas.`
-    : await answerAi(message, context);
+    : await answerAi(message, context, history, clientApiKey);
 
   return NextResponse.json({ answer, learned });
 }
