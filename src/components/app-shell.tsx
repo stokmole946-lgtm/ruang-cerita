@@ -5,6 +5,8 @@ import { getTodayPiketInfo } from "@/lib/piket";
 import { Brand } from "./brand";
 import { Navigation, type NavBadges } from "./navigation";
 import { AppDrawer } from "./app-drawer";
+import { FloatingAi } from "./floating-ai";
+import { ThemeProvider } from "./theme-provider";
 
 export async function AppShell({
   user,
@@ -106,6 +108,7 @@ export async function AppShell({
   };
 
   return (
+    <ThemeProvider>
     <div className="app-frame">
       <aside className="app-sidebar">
         <Brand />
@@ -149,6 +152,8 @@ export async function AppShell({
       <main className="app-main">{children}</main>
 
       <Navigation admin={admin} mobile badges={badges} />
+      <FloatingAi />
     </div>
+    </ThemeProvider>
   );
 }

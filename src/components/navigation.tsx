@@ -13,6 +13,7 @@ import {
   Megaphone,
   ChatTeardropDots,
   Broom,
+  Brain,
   Chats,
   QrCode,
   Scan,
@@ -212,6 +213,18 @@ export function Navigation({
               </button>
             </div>
             <nav aria-label="Menu lainnya">
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new Event("ai:open"));
+                  closeMenu();
+                }}
+                className="flex items-center gap-3 p-3 rounded-[10px] border-2 border-[#20201e] bg-gradient-to-r from-[#ede9fe] to-[#dbeafe] shadow-[2px_2px_0_#20201e] font-bold text-sm"
+              >
+                <Brain size={22} weight="fill" className="text-[#7c3aed]" />
+                <span className="flex-1 text-left">Ruang AI · Asisten SIJA</span>
+                <span className="badge text-[9px] !bg-[#c4b5fd]">AI</span>
+              </button>
               {extra.map(([href, label, Icon]) => {
                 const badge = localBadges[href];
                 const active = pathname === href;

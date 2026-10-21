@@ -7,6 +7,7 @@ import {
   AndroidLogo,
   Bell,
   BellRinging,
+  Brain,
   Broom,
   CalendarBlank,
   Camera,
@@ -28,6 +29,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { changePasswordAction, logoutAction, updateAvatarAction, updateContactAction } from '@/app/actions';
+import { ThemeSettings } from '@/components/theme-settings';
 
 export interface DrawerUser {
   id: string;
@@ -419,6 +421,19 @@ export function AppDrawer({
                     <Camera size={16} weight="bold" />
                     Pilih / Ganti Foto Profil
                   </button>
+                </div>
+
+                <div className="panel p-4 bg-[#fffef9] border-2 border-[#20201e] rounded-[10px] shadow-[2px_2px_0_#20201e] space-y-3">
+                  <div className="flex items-center gap-2"><Brain size={20} weight="fill" className="text-[#8b5cf6]" /><span className="text-xs font-black uppercase">Ruang AI</span></div>
+                  <p className="text-[11px] text-[#555951]">Buka asisten SIJA atau tampilkan kembali tombol AI yang pernah disembunyikan.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn-primary !min-h-[36px] text-xs" onClick={() => { window.dispatchEvent(new Event('ai:open')); setIsOpen(false); }}><Brain size={15} weight="fill" /> Buka AI</button>
+                    <button type="button" className="btn-secondary !min-h-[36px] text-xs" onClick={() => window.dispatchEvent(new Event('ai:restore-fab'))}>Tampilkan FAB</button>
+                  </div>
+                </div>
+
+                <div className="panel p-4 bg-[#fffef9] border-2 border-[#20201e] rounded-[10px] shadow-[2px_2px_0_#20201e]">
+                  <ThemeSettings />
                 </div>
 
                 {/* ── CARD NOTIFIKASI HP & APK ── */}

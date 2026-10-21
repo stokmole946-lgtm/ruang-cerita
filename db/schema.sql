@@ -84,6 +84,22 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id);
 
+CREATE TABLE IF NOT EXISTS ai_memories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL DEFAULT 'general'
+    CHECK (category IN ('general', 'agenda', 'assignment', 'sija', 'class')),
+  fact TEXT NOT NULL CHECK (char_length(fact) BETWEEN 3 AND 500),
+  learned_from UUID REFERENCES users(id) ON DELETE SET NULL,
+  learned_from_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING'
+    CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ai_memories_visibility_idx
+ON ai_memories(status, learned_from, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS reports_period_idx ON monthly_reports(period);
 CREATE INDEX IF NOT EXISTS reports_status_idx ON monthly_reports(status);
 CREATE INDEX IF NOT EXISTS reports_recipient_idx ON monthly_reports(recipient_id, forwarded_at);
@@ -101,6 +117,10 @@ FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 DROP TRIGGER IF EXISTS reports_touch_updated_at ON monthly_reports;
 CREATE TRIGGER reports_touch_updated_at BEFORE UPDATE ON monthly_reports
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS ai_memories_touch_updated_at ON ai_memories;
+CREATE TRIGGER ai_memories_touch_updated_at BEFORE UPDATE ON ai_memories
 FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS class_posts (

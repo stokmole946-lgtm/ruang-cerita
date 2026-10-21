@@ -2,6 +2,7 @@ import { changePasswordAction, logoutAction, updateContactAction } from "@/app/a
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { ThemeSettings } from "@/components/theme-settings";
 
 export default async function ProfilePage({
   searchParams,
@@ -108,6 +109,11 @@ export default async function ProfilePage({
               Simpan Nomor WhatsApp
             </button>
           </form>
+        </div>
+
+        <div className="border-t-2 border-[#20201e] pt-6 space-y-3">
+          <div><h3 className="text-xl font-extrabold">Tampilan Aplikasi</h3><p className="text-sm text-[#555951] mt-1">Pilih Neo-Brutalism, iPhone Glass, Midnight Cyber, serta wallpaper pribadi untuk perangkat ini.</p></div>
+          <ThemeSettings />
         </div>
 
         <div className="border-t-2 border-[#20201e] pt-6 flex items-center justify-between">
