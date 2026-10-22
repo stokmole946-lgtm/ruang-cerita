@@ -65,9 +65,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Hanya pengurus kelas yang dapat menyimpan kunci kelas." }, { status: 403 });
     }
     const key = String(rawJson.key || "").trim();
-    if (!key.startsWith("AIzaSy") || key.length < 25) {
+    if (key.length < 20 || key.length > 150) {
       return NextResponse.json(
-        { error: "Format API Key tidak valid. Kunci Google Gemini biasanya diawali dengan 'AIzaSy...'." },
+        { error: "Format API Key tidak valid. Panjang kunci harus minimal 20 karakter." },
         { status: 400 }
       );
     }

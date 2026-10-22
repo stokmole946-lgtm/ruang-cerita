@@ -30,6 +30,24 @@ export function FloatingAi() {
   const [tempKeyInput, setTempKeyInput] = useState('');
   const [keyNotice, setKeyNotice] = useState('');
 
+  // Draggable FAB state
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fabWrapRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    moved: boolean;
+  }>({
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+    moved: false,
+  });
+
   const [messages, setMessages] = useState<AiMessage[]>([
     {
       id: 'welcome',
@@ -58,6 +76,18 @@ export function FloatingAi() {
     setTempKeyInput(savedKey);
     checkStatus();
 
+    try {
+      const savedPos = localStorage.getItem('rc_ai_fab_pos');
+      if (savedPos) {
+        const parsed = JSON.parse(savedPos);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const clampedX = Math.min(Math.max(parsed.x, 10), (window.innerWidth || 400) - 75);
+          const clampedY = Math.min(Math.max(parsed.y, 10), (window.innerHeight || 800) - 75);
+          setFabPos({ x: clampedX, y: clampedY });
+        }
+      }
+    } catch {}
+
     const show = () => {
       setOpen(true);
       checkStatus();
@@ -73,6 +103,81 @@ export function FloatingAi() {
       window.removeEventListener('ai:restore-fab', restore);
     };
   }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const el = fabWrapRef.current;
+    const rect = el ? el.getBoundingClientRect() : { left: window.innerWidth - 85, top: window.innerHeight - 85 };
+    dragRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initialX: fabPos ? fabPos.x : rect.left,
+      initialY: fabPos ? fabPos.y : rect.top,
+      moved: false,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragRef.current.startX;
+    const dy = touch.clientY - dragRef.current.startY;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+      dragRef.current.moved = true;
+      setIsDragging(true);
+      const newX = Math.min(Math.max(dragRef.current.initialX + dx, 10), window.innerWidth - 75);
+      const newY = Math.min(Math.max(dragRef.current.initialY + dy, 10), window.innerHeight - 75);
+      setFabPos({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (dragRef.current.moved && fabPos) {
+      localStorage.setItem('rc_ai_fab_pos', JSON.stringify(fabPos));
+    }
+    setTimeout(() => setIsDragging(false), 80);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const el = fabWrapRef.current;
+    const rect = el ? el.getBoundingClientRect() : { left: window.innerWidth - 85, top: window.innerHeight - 85 };
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialX = fabPos ? fabPos.x : rect.left;
+    const initialY = fabPos ? fabPos.y : rect.top;
+    let hasMoved = false;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+        dragRef.current.moved = true;
+        setIsDragging(true);
+        const newX = Math.min(Math.max(initialX + dx, 10), window.innerWidth - 75);
+        const newY = Math.min(Math.max(initialY + dy, 10), window.innerHeight - 75);
+        setFabPos({ x: newX, y: newY });
+      }
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      if (hasMoved) {
+        setFabPos((current) => {
+          if (current) localStorage.setItem('rc_ai_fab_pos', JSON.stringify(current));
+          return current;
+        });
+      }
+      setTimeout(() => {
+        setIsDragging(false);
+        dragRef.current.moved = false;
+      }, 80);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -191,13 +296,44 @@ export function FloatingAi() {
   return (
     <>
       {!fabHidden && !open ? (
-        <div className="ai-fab-wrap">
-          <button type="button" onClick={() => setOpen(true)} className="ai-fab" aria-label="Buka Ruang AI">
+        <div
+          ref={fabWrapRef}
+          className="ai-fab-wrap"
+          style={
+            fabPos
+              ? { left: `${fabPos.x}px`, top: `${fabPos.y}px`, right: 'auto', bottom: 'auto' }
+              : undefined
+          }
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (!isDragging && !dragRef.current.moved) {
+                setOpen(true);
+              }
+            }}
+            className="ai-fab"
+            aria-label="Buka Ruang AI (Bisa digeser)"
+            title="Klik untuk buka, tahan & geser untuk pindah posisi"
+          >
             <span className="ai-fab-glow" />
             <Robot size={27} weight="fill" />
             <span className="ai-fab-dot" />
           </button>
-          <button type="button" onClick={hideFab} className="ai-fab-hide" aria-label="Sembunyikan tombol AI" title="Sembunyikan tombol floating">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              hideFab();
+            }}
+            className="ai-fab-hide"
+            aria-label="Sembunyikan tombol AI"
+            title="Sembunyikan tombol floating"
+          >
             <X size={11} weight="bold" />
           </button>
         </div>

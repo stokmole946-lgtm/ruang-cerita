@@ -369,8 +369,13 @@ ${JSON.stringify(context)}
     },
   ];
 
-  // Coba model gemini-2.0-flash, jika gagal coba gemini-1.5-flash
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  // Daftar model aktif Google Gemini (dimulai dari yang paling responsif dan hemat kuota)
+  const models = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash",
+  ];
 
   for (const model of models) {
     try {
